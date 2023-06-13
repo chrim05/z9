@@ -2,6 +2,7 @@
 
 // i can parse this by matching `id=` or `id;` (type inference)
 const x = ..
+// and i can use it, since in c99 the type specifier must be explicit (fortunately)
 
 
 // IM NOT SURE ABOUT `auto`

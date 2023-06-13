@@ -7,18 +7,18 @@
     // this for loop uses the null terminator
     // when the iterable item is a `char const*`
     for @with_idx(uint8_t i, char c : p)
-        @dbg(c, i)
+        @dbg(c, i);
 
     // it also has the null terminator (unfortunately)
     string_t s = "hello";
     @expect(s.len() == 5);
 
     for (char c : s)
-        @dbg(c)
+        @dbg(c);
 
     // "he", but you are gonna have problems with null terminator
     const s2 = string_t.from_str(s.buffer, 2);
-    @expect(s != s2)
+    @expect(s != s2);
 }
 
 // THIS IS JUST TO SHOW HOW IT WORKS UNDER THE HOOD

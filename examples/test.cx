@@ -4,5 +4,5 @@
 @test "is cpu good at math?" {
     int32_t add(int32_t a, int32_t b) { return a + b; }
 
-    @expect(add(1, 2) == 3)
+    @expect(add(1, 2) == 3);
 }

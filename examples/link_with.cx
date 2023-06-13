@@ -18,9 +18,7 @@ int add(int a, int b);
 @meta {
     // also here you can see the new switch
     switch (@target_cpu) {
-        case @target_cpu_t.x86_64,
-             @target_cpu_t.x86 {
-
+        case @target_cpu_t.x86_64, @target_cpu_t.x86 {
             @link_with(@"libs/{@target_cpu}/libraylib.a");
         }
 

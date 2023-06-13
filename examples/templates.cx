@@ -19,7 +19,7 @@ typedef![t] struct {
             .buffer   = mem.alloc_array![t](capacity),
             .capacity = capacity,
             .length   = length,
-        }
+        };
     }
 
     t* nth(size_t index) {
