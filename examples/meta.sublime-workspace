@@ -1,0 +1,286 @@
+{
+	"auto_complete":
+	{
+		"selected_items":
+		[
+			[
+				"end",
+				"end\tconvention"
+			],
+			[
+				"usede",
+				"usedef-names\tcontext"
+			],
+			[
+				"len",
+				"length"
+			]
+		]
+	},
+	"buffers":
+	[
+	],
+	"build_system": "",
+	"build_system_choices":
+	[
+	],
+	"build_varint": "",
+	"command_palette":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+			[
+				"color",
+				"UI: Select Color Scheme"
+			],
+			[
+				"syntax: c",
+				"Set Syntax: C"
+			],
+			[
+				"Package Control: ",
+				"Package Control: Discover Packages"
+			],
+			[
+				"install",
+				"Package Control: Install Package"
+			],
+			[
+				"remove",
+				"Package Control: Remove Package"
+			],
+			[
+				"shell",
+				"Set Syntax: Bourne Again Shell (bash)"
+			],
+			[
+				"them",
+				"UI: Select Theme"
+			],
+			[
+				"active",
+				"ayu: Activate theme"
+			],
+			[
+				"installa",
+				"Package Control: Install Package"
+			],
+			[
+				"configuration",
+				"Material Theme: Configuration"
+			],
+			[
+				"activate",
+				"Material Theme: Activate theme"
+			],
+			[
+				"browse",
+				"Preferences: Browse Packages"
+			],
+			[
+				"insta",
+				"Install Package Control"
+			],
+			[
+				"install ",
+				"Install Package Control"
+			],
+			[
+				"theme",
+				"UI: Select Color Scheme"
+			]
+		],
+		"width": 0.0
+	},
+	"console":
+	{
+		"height": 206.0,
+		"history":
+		[
+			"open('const.hx', 'r').close()",
+			"open('const', 'r').close()",
+			"exit()",
+			"os.get_cwd()",
+			"import os",
+			"import ",
+			"cls",
+			"ls",
+			"exit()",
+			"exit",
+			"cls",
+			"ls",
+			"import a",
+			"l",
+			"exit",
+			"exit()",
+			"clear()",
+			"clear(=",
+			"!clear",
+			"clear",
+			"os.system('cls')",
+			"os.system('cls')=",
+			"import os",
+			"cls"
+		]
+	},
+	"distraction_free":
+	{
+		"menu_visible": true,
+		"show_minimap": false,
+		"show_open_files": false,
+		"show_tabs": false,
+		"side_bar_visible": false,
+		"status_bar_visible": false
+	},
+	"file_history":
+	[
+		"/C/Users/fedem/AppData/Roaming/Sublime Text 3/Packages/Default/Preferences.sublime-settings",
+		"/C/Users/fedem/AppData/Roaming/Sublime Text 3/Packages/User/zpp.sublime-syntax",
+		"/C/Users/fedem/Desktop/zpp/examples/new_syntax.zpp",
+		"/C/Users/fedem/Desktop/zpp/examples/hello_world_and_string_interpolation.zpp",
+		"/C/Users/fedem/Desktop/zpp/examples/mutate_compiler_behaviour.zpp",
+		"/C/Users/fedem/Desktop/zpp/new_syntax.zpp",
+		"/C/Users/fedem/AppData/Roaming/Sublime Text 3/Packages/User/new_c.sublime-syntax",
+		"/C/Users/fedem/Desktop/zpp/examples/cpp_import.zpp",
+		"/C/Users/fedem/Desktop/zpp/examples/templates_and_unit_testing.zpp",
+		"/C/Users/fedem/Desktop/zpp/templates_and_unit_testing.zpp",
+		"/C/Users/fedem/AppData/Roaming/Sublime Text 3/Packages/User/fluid.sublime-syntax",
+		"/C/Users/fedem/tmp/e/samples/fib.hx",
+		"/C/Users/fedem/tmp/e/samples/main.hx",
+		"/C/Users/fedem/tmp/e/samples/errors.hx",
+		"/C/Users/fedem/tmp/e/samples/const.hx",
+		"/C/Users/fedem/tmp/e/const.hx",
+		"/C/Users/fedem/tmp/e/zen.txt",
+		"/C/Users/fedem/tmp/e/native.txt",
+		"/C/Users/fedem/tmp/e/test.hx",
+		"/C/Users/fedem/tmp/e/list.hx",
+		"/C/Users/fedem/tmp/e/list2.hx",
+		"/C/Program Files/Sublime Text 3/Packages/C++.sublime-package",
+		"/C/Users/fedem/tmp/e/a.f",
+		"/C/Users/fedem/tmp/k/buildozer.spec",
+		"/C/Users/fedem/tmp/stuff/a.py",
+		"/C/Users/fedem/tmp/a.f"
+	],
+	"find":
+	{
+		"height": 30.0
+	},
+	"find_in_files":
+	{
+		"height": 274.0,
+		"where_history":
+		[
+		]
+	},
+	"find_state":
+	{
+		"case_sensitive": false,
+		"find_history":
+		[
+		],
+		"highlight": true,
+		"in_selection": false,
+		"preserve_case": false,
+		"regex": false,
+		"replace_history":
+		[
+		],
+		"reverse": false,
+		"show_context": true,
+		"use_buffer2": true,
+		"whole_word": false,
+		"wrap": true
+	},
+	"groups":
+	[
+		{
+			"sheets":
+			[
+			]
+		}
+	],
+	"incremental_find":
+	{
+		"height": 30.0
+	},
+	"input":
+	{
+		"height": 94.0
+	},
+	"layout":
+	{
+		"cells":
+		[
+			[
+				0,
+				0,
+				1,
+				1
+			]
+		],
+		"cols":
+		[
+			0.0,
+			1.0
+		],
+		"rows":
+		[
+			0.0,
+			1.0
+		]
+	},
+	"menu_visible": true,
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"pinned_build_system": "",
+	"project": "meta.sublime-project",
+	"replace":
+	{
+		"height": 56.0
+	},
+	"save_all_on_build": true,
+	"select_file":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_project":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"select_symbol":
+	{
+		"height": 0.0,
+		"last_filter": "",
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"selected_group": 0,
+	"settings":
+	{
+	},
+	"show_minimap": true,
+	"show_open_files": false,
+	"show_tabs": true,
+	"side_bar_visible": false,
+	"side_bar_width": 294.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
+}

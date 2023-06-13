@@ -1,0 +1,33 @@
+@includo std("stdio.h");
+
+// breaking features can be enabled
+// via the `use_feature` tag
+// this variant of it, enables the features
+// for all the members declared below
+// (just not to break all includes,
+//  so make sure to include all headers before this)
+@use_feature must_discard;
+
+// and that's why you shouldn't `#include`
+// `.cx` files
+
+// this variant, instead, limits the feature
+// to the block
+@use_feature explicit_undef, strict_rules {
+
+}
+
+// more about `must_discard` (included in `struct_rules`):
+//   * makes discarding unused results, from call, mandatory
+//   * makes `(void)expr` an error
+//   * now you discard using `...`, recycled from the varargs syntax
+
+// main can now be void,
+// and will implicitly return 0.
+// since this is not a breaking feature,
+// it's not necessary to enable it via `use_feature` tag
+void main() {
+    // printf returns a negative number when
+    // it fails the output operation
+    ... = printf("Hello world!");
+}

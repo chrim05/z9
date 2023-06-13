@@ -1,0 +1,31 @@
+// iso c99: https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1548.pdf
+
+// i can parse this by matching `id=` or `id;` (type inference)
+const x = ..
+
+
+// IM NOT SURE ABOUT `auto`
+
+
+// but for `auto` we always mean a variable
+auto x = ..
+
+// so this will be a compiler error, suggesting to use `const x = ..` instead
+const auto x = ..
+
+
+// stdbool is available
+// also
+((char)x).to_string() // "a"c
+((uint8_t)x).to_string() // "97"
+// we can do this since uint8_t and char are not compatible
+
+// about const modifier ambiguity
+int const *p1;      // the variable is mutable, but not the pointer's content
+int * const p2 = 0; // the variable is not mutable, but the pointer's content is
+const int *p3;      // the same of `int const*`, but maybe it changes based on the context
+
+
+
+// another thing:
+// evaluate args in call in order (for the standard is actually unspecified behavior)

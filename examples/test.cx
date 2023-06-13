@@ -1,0 +1,8 @@
+@includo std("stdint.h");
+
+// you can test your code just with this simple statement
+@test "is cpu good at math?" {
+    int32_t add(int32_t a, int32_t b) { return a + b; }
+
+    @expect(add(1, 2) == 3)
+}

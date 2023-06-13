@@ -1,0 +1,58 @@
+@includo string;
+@includo std("stdint.h");
+
+@test "better ascii strings for c" {
+    char const* p = "1234";
+
+    // this for loop uses the null terminator
+    // when the iterable item is a `char const*`
+    for @with_idx(uint8_t i, char c : p)
+        @dbg(c, i)
+
+    // it also has the null terminator (unfortunately)
+    string_t s = "hello";
+    @expect(s.len() == 5);
+
+    for (char c : s)
+        @dbg(c)
+
+    // "he", but you are gonna have problems with null terminator
+    const s2 = string_t.from_str(s.buffer, 2);
+    @expect(s != s2)
+}
+
+// THIS IS JUST TO SHOW HOW IT WORKS UNDER THE HOOD
+// it is already declared in `package("string")`
+typedef struct {
+    char*  buffer;
+    size_t length;
+
+    @this_t from_str(char* text, size_t length) static {
+        return (@this_t) {
+            .buffer = (char*)text,
+            .length = length
+        };
+    }
+
+    char* nth(size_t index) {
+        return &.buffer[index];
+    }
+
+    size_t len() const {
+        return .length;
+    }
+
+    bool_t eq(@this_t other) const {
+        if (.buffer == other.buffer)
+            return .length == other.length;
+
+        if (.length != other.length)
+            return false;
+
+        for @zip(auto l : @this, auto r : other)
+            if (l != r)
+                return false;
+
+        return true;
+    }
+} string_t;

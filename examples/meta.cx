@@ -1,0 +1,27 @@
+// also see `link_with.cx`
+
+// executed at compile time
+@meta {
+    if (@filename == "meta.cx")
+        @dbg("foo");
+}
+
+int add(int a, int b) { return a + b; }
+
+void main() {
+    const x = @meta(add(1, 2));
+    const y = 10; // since `10` is a meta value
+                  // then `y` will be a meta const
+
+    // in normal c compilers, `x` and `y` would be immutable variables
+    // but cx treats them as constexprs, because their initializers
+    // are constexpr (cx calls them `meta values`)
+
+    // here `k` is not meta const, but just
+    // an immutable variable
+    const z = add(1, 2);
+
+    int a[x]; // the same of `int a[3];`
+    int b[y]; // the same of `int b[10];`
+    int c[z]; // also possible, but uses VLA
+}

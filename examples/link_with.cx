@@ -1,0 +1,41 @@
+// file compiled with: `cxc link_with.cx`
+// so you don't need to add other flags to link
+// with the object
+
+@link_with("clang_object.o");
+@use_feature strict_rules;
+
+// a function from "clang_object.o"
+int add(int a, int b);
+
+@test "link directly from source code" {
+    ... = add(1, 2);
+}
+
+// and what about cross compilation?
+
+// meta block is executed at compile time
+@meta {
+    // also here you can see the new switch
+    switch (@target_cpu) {
+        case @target_cpu_t.x86_64,
+             @target_cpu_t.x86 {
+
+            @link_with(@"libs/{@target_cpu}/libraylib.a");
+        }
+
+        default {
+            @panic(@"you cannot target '{@target_cpu}' cpu");
+        }
+    }
+
+    // or
+    if (@target_os == @target_os_t.darwin)
+        @panic("macos is not supported");
+
+    const cpu = @target_cpu;
+    const ext = @target_os_dynlib_ext;
+
+    @link_with(@"dyn/{cpu}/somelib.{ext}");
+    // for example, on [win11 x86-64] will search for `dyn/x86_64/somelib.dll`
+}

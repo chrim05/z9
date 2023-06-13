@@ -1,0 +1,56 @@
+@includo std("stdint.h");
+
+// disallowing int implicit casts
+// (it actually does a lot of other things)
+@use_feature strict_rules;
+
+typedef enum struct {
+    none,
+    overflow,
+    underflow,
+} matherr_t;
+
+// this is not a serious implementation
+// its purpose is to show how failable functions should be implemented
+// which is generally the c way of doing it
+matherr_t checked_sum(int32_t a, int32_t b, int32_t* result) {
+    const sum = (int64_t)a + (int64_t)b;
+
+    if (sum > int32_t.max)
+        return matherr_t.overflow;
+
+    if (sum < int32_t.min) {
+        return matherr_t.underflow;
+
+    *result = (int32_t)sum;
+    return matherr_t.none;
+}
+
+@test "checking overflow/underflow" {
+    const err = checked_sum(int32_t.max, 1, @out auto sum);
+    @expect(err == matherr_t.overflow);
+
+    const err2 = checked_sum(int32_t.min, -1, &sum);
+    @expect(err2 == matherr_t.underflow);
+}
+
+@test "catching overflow/underflow" {
+    // propagates the error
+    @try (checked_sum(1, -2, @out int32_t sum));
+    @expect(sum == -1);
+
+    // catches the error
+    @catch (const err2 = checked_sum(int32_t.min, -1, &sum)) {
+        @panic(@"error {err2}");
+    }
+}
+
+@test "no overflow/underflow" {
+    const err = checked_sum(1, 2, @out auto sum);
+    @expect(err == matherr_t.none);
+    @expect(sum == 3);
+
+    const err2 = checked_sum(500, -200, &sum);
+    @expect(err2 == matherr_t.none);
+    @expect(sum == 300);
+}

@@ -1,0 +1,34 @@
+@includo std("stdint.h");
+
+int32_t partition(int32_t arr[], int32_t low, int32_t high) {
+    int32_t pivot = arr[high];
+    int32_t i = (low - 1);
+
+    for (int32_t j = low; j <= high - 1; j++) {
+        if (arr[j] >= pivot)
+            continue;
+
+        i++;
+        @swap(arr[i], arr[j]);
+    }
+
+    @swap(arr[i + 1], arr[high]);
+    return i + 1;
+}
+
+void quicksort(int32_t arr[], int32_t low, int32_t high) {
+    if (low >= high)
+        return;
+
+    int32_t pi = partition(arr, low, high);
+
+    quicksort(arr, low, pi - 1);
+    quicksort(arr, pi + 1, high);
+}
+
+@test "quicksorting an int array" {
+    int32_t arr[] = { 10, 7, 8, 9, 1, 5 };
+    quicksort(arr);
+
+    return 0;
+}

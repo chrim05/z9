@@ -1,0 +1,38 @@
+// port of basic raylib example from
+// https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c
+
+// this will download the package if not
+// already installed in compiler's `packages` folder
+// and then will include it ONLY ONCE (includo instead of include).
+@includo package("raylib");
+
+// this tag enqueues the package's static library
+// to the "to link with" list.
+@link_with package("raylib");
+
+// you can use `@import package("name") lib;`
+// to import the corvo module, however raylib makes it
+// pretty useless since it provides important macros
+// such as colors.
+// macros cannot be used from caller module for obvious reasons
+
+void main()
+{
+    const int screen_width = 800;
+    const int screen_height = 450;
+
+    InitWindow(screen_width, screen_height, "raylib [core] example - basic window");
+    SetTargetFPS(60);
+
+    while (!WindowShouldClose())
+    {
+        BeginDrawing();
+
+            ClearBackground(RAYWHITE);
+            DrawText("Congrats! You created your first window!", 190, 200, 20, LIGHTGRAY);
+
+        EndDrawing();
+    }
+
+    CloseWindow();
+}

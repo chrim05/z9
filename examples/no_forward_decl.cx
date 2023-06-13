@@ -1,0 +1,39 @@
+@includo std("stdio.h");
+@includo std("stdint.h");
+
+@use_feature explicit_undef;
+
+void main() {
+    cpu_t cpu = @undef;
+    cpu.imm1(10);
+    cpu.imm2(20);
+    cpu.add();
+}
+
+typedef struct {
+    int32_t r1;
+    int32_t r2;
+
+    // immediate into r1
+    void imm1(int32_t i) {
+        // the `->` is no longer necessary
+        // but you must use it for dereferences such as `*self = ..`
+        .r1 = i;
+    }
+
+    // immediate into r2
+    void imm2(int32_t i) {
+        .r2 = i;
+    }
+
+    // r1 = r1 + r2
+    void add() {
+        .r1 += .r2;
+    }
+
+    void showcase() {
+        // just to show that corvo also exposes
+        // a tag for current instance, and it's type
+        @this_t this = @this;
+    }
+} cpu_t;

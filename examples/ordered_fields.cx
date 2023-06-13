@@ -1,0 +1,14 @@
+// the struct layout is reorginized
+// to be as small as possible,
+// just like every modern language
+typedef @opt struct {
+    int16_t x;
+    int32_t y;
+    int16_t z;
+
+    // reorginized from `x, y, z` to `x, z, y`
+    // size without `@opt`: 32 * 3 = 12 byte
+    // size with `@opt`: 32 * 2 = 8 byte
+    // (these structs are not compatible
+    //  with normal c structs)
+} space_optimized_t;
