@@ -6,7 +6,7 @@
 
     // this for loop uses the null terminator
     // when the iterable item is a `char const*`
-    for @with_idx(uint8_t i, char c : p)
+    for @idx(uint8_t i, char c : p)
         @dbg(c, i);
 
     // it also has the null terminator (unfortunately)
