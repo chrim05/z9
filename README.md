@@ -20,17 +20,19 @@ i can't write a full cpp compiler.
 
 but maybe i can write a minimal c99 compiler and extend it(?) i'll try my best.
 
-*features i want in the compiler (see `examples/`):*
+**features i want in the compiler (see `examples/`):**
 * 90% compatible with existing code
 * tags, `@name` can be a new way to do something, for example `@include_once "..."` or `@execute_at_compile_time(...)` or `@defer` etc..
 * members don't need to be forward declared:
-```
+```c
+// int add(int a, int b); -> this is not necessary anymore, neither with typedefs
+
 int main() { return add(1, 2); }
 int add(int a, int b) { return a + b; }
 ```
 * kind operator overloading
 * generics
-* foreach (with a lot of extensions, for example `for @zip(auto i`)
+* foreach (with a lot of extensions, for example `for @zip(auto e1 : iterable1, auto e2 : iterable2) {}` or `for @idx(auto i, auto e : iterable) {}`)
 * auto will be used for type inference instead
 * const doesn't need the type specifier (type inference)
 * const can work as constexpr (called meta value) when the initializer is constexpr (a meta value)
