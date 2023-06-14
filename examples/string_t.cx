@@ -1,5 +1,6 @@
 @includo string;
 @includo std("stdint.h");
+@includo std("stdbool.h");
 
 @test "better ascii strings for c" {
     char const* p = "1234";
@@ -42,7 +43,7 @@ typedef struct {
         return .length;
     }
 
-    bool_t eq(@this_t other) const {
+    bool eq(@this_t other) const {
         if (.buffer == other.buffer)
             return .length == other.length;
 

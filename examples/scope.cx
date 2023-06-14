@@ -1,0 +1,18 @@
+@import io;
+@includo string;
+
+// `@scope` instead of `@defer` is preferred
+// with items which supports it;
+//
+// since old c structs don't support it,
+// you can use `@defer` on them, but remember to
+// implement `drop` function for your structs
+@test "scoped file streams" {
+    string_t content  = io.read_all_file("scope.cx");
+
+    // will be allocated at the first use
+    auto storage = storage_t.new();
+    @scope storage; // short hand for `storage.drop()`
+
+    string_t content2 = io.storage_read_all_file(&storage, "scope.cx");
+}

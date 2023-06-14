@@ -1,0 +1,97 @@
+// what about traits?
+
+// IM NOT SURE ABOUT THIS, it's just a sketch
+// this would bring cx too much in the oop direction
+// and that's absolutely not my goal
+//
+// I MEAN, this is cool, but its implementation avoids DOD and
+// would probably use virtual tables. we know that interfaces implemented
+// with switch statement are probably better, but we can't decide for the user
+// and exposing 2/3 different `@impl` tags to different under-the-hood-implementations
+// sounds a bad idea.
+
+@includo std("stdint.h");
+@includo std("stdbool.h");
+
+@includo string;
+@use_feature explicit_opt;
+
+typedef @interface {
+    string_t inspect() const;
+} inspect_i;
+
+typedef @interface {
+    @this_t add(@this_t other) const;
+    @this_t sub(@this_t other) const;
+    @this_t mul(@this_t other) const;
+    @this_t div(@this_t other) const;
+} arithmetic_i;
+
+typedef @interface {
+    bool eq(@this_t other) const;
+} compare_i;
+
+typedef @impl(arithmetic_i, inspect_i, compare_i) @opt struct {
+    double re;
+    double im;
+
+    const zero = @this_t.new(0, 0);
+    const i = @this_t.new(0, 1);
+
+    @this_t new( double re, double im) static {
+        return (@this_t) {
+            .re = re,
+            .im = im
+        }
+    }
+
+    @this_t add(@this_t other) const {
+        return (@this_t) {
+            .im = .im + other.im,
+            .re = .re + other.re,
+        };
+    }
+
+    bool eq(@this_t other) const {
+        other.
+    }
+
+    // unimplemented
+    @this_t sub(@this_t other) const { @todo(); }
+    @this_t mul(@this_t other) const { @todo(); }
+    @this_t div(@this_t other) const { @todo(); }
+
+    string_t inspect() const {
+        return @"{.re}+{.im}i";
+    }
+} complex_number_t;
+
+@import io;
+
+void inspect(debug_i debuggable) {
+    io.eprintln(debuggable.inspect());
+}
+
+void inspect_generic<debug_i t>(t debuggable) {
+    io.eprintln(debuggable.inspect());
+}
+
+@test "inspectors" {
+    const n = complex_number_t.zero;
+
+    // and what about memory and `@box`?
+    // i still didn't decide, this is just a sketch
+    inspect(@box(n));
+    inspect_generic[complex_number_t](n);
+}
+
+@test "arithmetic" {
+    const n1 = complex_number_t.zero;
+    const n2 = complex_number_t.i;
+
+    const box1 = @box[arithmetic_i, compare_i](n1);
+    const box2 = @box[arithmetic_i, compare_i](n2);
+
+    @expect(n1 + n2 == n2);
+    @expect(box1 + box2 == box2);
+}

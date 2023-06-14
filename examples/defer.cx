@@ -1,5 +1,28 @@
-void main() {
-    while () {
-        @defer 
+@includo std("stdint.h");
+
+@test "defer in while loops" {
+    size_t i = 0;
+
+    while (i < 100) {
+        @defer i++;
+
+        if (i == 20)
+            // without defer we had to place a `i++`
+            // also here
+            continue;
+
+        // and here too
     }
+}
+
+// please don't use this std header in cx
+// i exposed a modernized version of it in `package("io")`
+// import it using `@import io;` or `@includo io;`
+@includo std("stdio.h");
+
+@test "defer with scoped items" {
+    FILE* stream = fopen("defer.cx", "r");
+    @defer fclose(stream);
+
+    // do something with the stream
 }

@@ -1,0 +1,5 @@
+void main() {
+    // it does not expand to NULL
+    // but it's still compatible with it
+    int* abc = @null;
+}
