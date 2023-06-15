@@ -72,16 +72,20 @@ void compilation_tower_read_file(compilation_tower_t* c) {
     c->source_size = get_file_size(filestream);
     c->source_code = malloc(c->source_size);
 
-    // i read the file into the arena allocator
-    read_file_into((char*)c->source_code, filestream, c->source_size);
+    // reading the file into the buffer
+    // and updating the source size, i don't know why but
+    // ftells often returns a wrong file size
+    c->source_size = read_file_into((char*)c->source_code, filestream, c->source_size);
 
     // closing the file because i already
     // read the whole content in a buffer
     fclose(filestream);
+    // removing the temporary file
+    remove(filepath);
 }
 
 void drop_compilation_tower(compilation_tower_t* c) {
-    free(&c->source_code);
+    free((void*)c->source_code);
     drop_storage(&c->temp);
     drop_tokens(&c->tokens);
 }
@@ -95,11 +99,9 @@ compilation_tower_t create_compilation_tower(char const* filepath) {
 
 void drop_tokens(tokens_t* t) {
     free(t->kinds);
-    free(t->values);
     drop_string_values(&t->string_values);
 }
 
 void drop_string_values(string_values_t* s) {
     free(s->contents);
-    free(s->lengths);
 }

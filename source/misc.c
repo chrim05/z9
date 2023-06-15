@@ -64,10 +64,26 @@ size_t get_file_size(FILE* stream) {
     return filesize;
 }
 
-void read_file_into(char* filebuffer, FILE* stream, size_t filesize) {
-    fread(filebuffer, 1, filesize, stream);
+size_t read_file_into(char* filebuffer, FILE* stream, size_t filesize) {
+    return fread(filebuffer, 1, filesize, stream);
 }
 
 void dbg_impl(char const* message, char const* file, int line) {
     fprintf(stderr, "[%s:%d] Dbg: '%s'\n", file, line, message);
+}
+
+bool char_is_in_range(char c, char inclusive_start, char inclusive_stop) {
+    return c >= inclusive_start && c <= inclusive_stop;
+}
+
+bool is_alpha_char(char c) {
+    return char_is_in_range(c, 'a', 'z') || char_is_in_range(c, 'A', 'Z');
+}
+
+bool is_digit_char(char c) {
+    return char_is_in_range(c, '0', '9');
+}
+
+bool is_word_char(char c) {
+    return is_alpha_char(c) || is_digit_char(c) || c == '_';
 }

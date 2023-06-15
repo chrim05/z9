@@ -35,6 +35,14 @@ void drop_storage(storage_t* s);
 
 size_t get_file_size(FILE* stream);
 
-void read_file_into(char* filebuffer, FILE* stream, size_t filesize);
+size_t read_file_into(char* filebuffer, FILE* stream, size_t filesize);
+
+bool char_is_in_range(char c, char inclusive_start, char inclusive_stop);
+
+bool is_alpha_char(char c);
+
+bool is_digit_char(char c);
+
+bool is_word_char(char c);
 
 #endif //SOURCE_MISC_H

@@ -19,6 +19,16 @@ typedef struct {
 
 void drop_string_values(string_values_t* s);
 
+// all the token kinds
+enum {
+    TK_RETURN, TK_WHILE, TK_IF,
+    TK_ID, TK_NUM,
+    TK_LPAR = '(', TK_RPAR = ')',
+    TK_LBRACE = '{', TK_RBRACE = '}',
+    TK_LBRACK = '[', TK_RBRACK = ']',
+    TK_SEMI = ';'
+};
+
 typedef uint8_t  token_kind_t;
 typedef uint32_t token_value_t;
 
