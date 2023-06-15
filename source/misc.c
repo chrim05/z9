@@ -1,8 +1,15 @@
 #include "misc.h"
 
 _Noreturn void panic_impl(char const* error, char const* file, int line) {
+#if DEBUG
     fprintf(stderr, "[%s:%d] Panic: '%s'\n", file, line, error);
     abort();
+#else
+    (void)error;
+    (void)file;
+    (void)line;
+    __builtin_unreachable();
+#endif
 }
 
 void assert_impl(bool condition, char const* file, int line) {
@@ -11,6 +18,10 @@ void assert_impl(bool condition, char const* file, int line) {
         return;
 
     panic_impl("failed assert", file, line);
+#else
+    (void)condition;
+    (void)file;
+    (void)line;
 #endif
 }
 
@@ -69,7 +80,13 @@ size_t read_file_into(char* filebuffer, FILE* stream, size_t filesize) {
 }
 
 void dbg_impl(char const* message, char const* file, int line) {
+#if DEBUG
     fprintf(stderr, "[%s:%d] Dbg: '%s'\n", file, line, message);
+#else
+    (void)message;
+    (void)file;
+    (void)line;
+#endif
 }
 
 bool char_is_in_range(char c, char inclusive_start, char inclusive_stop) {

@@ -1,6 +1,8 @@
 #ifndef SOURCE_TOKENIZER_H
 #define SOURCE_TOKENIZER_H
 
+#include <memory.h>
+
 #include "compilation_tower.h"
 #include "misc.h"
 
@@ -55,14 +57,24 @@ void tokenizer_maybe_resize_tokens(tokenizer_t* t) {
     if (tokenizer_can_append_token(t))
         return;
 
+    const size_t old_sizeof_kinds = sizeof(token_kind_t) * t->tower->tokens.capacity;
+    const size_t old_sizeof_values = sizeof(token_value_t) * t->tower->tokens.capacity;
+
     t->tower->tokens.capacity *= 2;
     const size_t sizeof_kinds = sizeof(token_kind_t) * t->tower->tokens.capacity;
     const size_t sizeof_values = sizeof(token_value_t) * t->tower->tokens.capacity;
 
-    uint8_t* const joint = realloc(t->tower->tokens.kinds, sizeof_kinds + sizeof_values);
+    uint8_t* const joint = malloc(sizeof_kinds + sizeof_values);
 
-    t->tower->tokens.kinds = (token_kind_t*)(joint + 0);
-    t->tower->tokens.values = (token_value_t*)(joint + sizeof_kinds);
+    token_kind_t* const kinds = (token_kind_t*)(joint + 0);
+    token_value_t* const values = (token_value_t*)(joint + sizeof_kinds);
+
+    memcpy((void*)kinds, t->tower->tokens.kinds, old_sizeof_kinds);
+    memcpy((void*)values, t->tower->tokens.values, old_sizeof_values);
+    free((void*)t->tower->tokens.kinds);
+
+    t->tower->tokens.kinds = kinds;
+    t->tower->tokens.values = values;
 }
 
 void tokenizer_append_token(
@@ -90,14 +102,24 @@ void tokenizer_maybe_resize_string_values(tokenizer_t* t) {
 
     string_values_t* const string_values = &t->tower->tokens.string_values;
 
-    t->tower->tokens.capacity *= 2;
+    const size_t old_sizeof_contents = sizeof(string_value_content_t) * string_values->capacity;
+    const size_t old_sizeof_lengths = sizeof(string_value_length_t) * string_values->capacity;
+
+    string_values->capacity *= 2;
     const size_t sizeof_contents = sizeof(string_value_content_t) * string_values->capacity;
     const size_t sizeof_lengths = sizeof(string_value_length_t) * string_values->capacity;
 
-    uint8_t* const joint = realloc(string_values->contents, sizeof_contents + sizeof_lengths);
+    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths);
 
-    string_values->contents = (string_value_content_t*)(joint + 0);
-    string_values->lengths = (string_value_length_t*)(joint + sizeof_contents);
+    string_value_content_t* const contents = (string_value_content_t*)(joint + 0);
+    string_value_length_t* const lengths = (string_value_length_t*)(joint + sizeof_contents);
+
+    memcpy((void*)contents, string_values->contents, old_sizeof_contents);
+    memcpy((void*)lengths, string_values->lengths, old_sizeof_lengths);
+    free((void*)string_values->contents);
+
+    string_values->contents = contents;
+    string_values->lengths = lengths;
 }
 
 size_t tokenizer_append_string_value(
