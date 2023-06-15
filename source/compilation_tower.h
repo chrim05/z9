@@ -1,39 +1,60 @@
-//
-// Created by admin on 14/06/2023.
-//
-
 #ifndef SOURCE_COMPILATION_TOWER_H
 #define SOURCE_COMPILATION_TOWER_H
 
 #include "misc.h"
 
+#define TEMP_STORAGE_BYTES_SIZE 10000
+
+typedef char const* string_value_content_t;
+typedef uint32_t    string_value_length_t;
+
 typedef struct {
-    // an arena allocator for whatever can be allocated there
-    storage_t storage;
+    string_value_content_t* contents; // jointly allocated
+    string_value_length_t*  lengths;  // jointly allocated
+
+    // these are used to append and resize `contents` and `lengths`
+    size_t length;
+    size_t capacity;
+} string_values_t;
+
+void drop_string_values(string_values_t* s);
+
+typedef uint8_t  token_kind_t;
+typedef uint32_t token_value_t;
+
+typedef struct {
+    token_kind_t*  kinds;  // jointly allocated
+    token_value_t* values; // jointly allocated
+
+    // these are used to append and resize `kinds` and `values`
+    size_t length;
+    size_t capacity;
+
+    // when token kind is `id` or `string`
+    // or whatever has a string representation
+    // then, the token value is an index to this array
+    string_values_t string_values;
+} tokens_t;
+
+void drop_tokens(tokens_t* t);
+
+typedef struct {
+    // an arena allocator for whatever needs to be temporary allocated
+    storage_t temp;
     // this must be an absolute path
     char const* filepath;
-    FILE* filestream;
+    char const* source_code;
+    size_t source_size;
 
+    tokens_t tokens;
 } compilation_tower_t;
 
-compilation_tower_t create_compilation_tower(char const* file) {
-    return (compilation_tower_t) {
-        .filepath = file
-    };
-}
+compilation_tower_t create_compilation_tower(char const* filepath);
 
-void drop_compilation_tower(compilation_tower_t* c) {
-    drop_storage(&c->storage);
-    fclose(c->filestream);
-}
+void drop_compilation_tower(compilation_tower_t* c);
 
-void compilation_tower_read_file(compilation_tower_t* c) {
-    c->filestream = fopen(c->filepath, "r");
+void compilation_tower_read_file(compilation_tower_t* c);
 
-    if (c->filestream == NULL)
-        panic("file not found");
-
-    storage_read_file(c->filestream);
-}
+void compilation_tower_tokenizer(compilation_tower_t* c);
 
 #endif //SOURCE_COMPILATION_TOWER_H

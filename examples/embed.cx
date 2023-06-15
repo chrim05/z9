@@ -1,0 +1,12 @@
+@import io;
+
+@test "embedding big strings from files at compile time" {
+    // (executed at compile time, results in a large string literal)
+    // the source code is embedding itself in the source code
+    const source_code = @embed("embed.cx");
+
+    io.println("This is the source code of this program:");
+    io.println("```cx");
+    io.println(source_code);
+    io.println("```");
+}

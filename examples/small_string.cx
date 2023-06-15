@@ -1,1 +1,13 @@
 // TODO: implement the facebook string
+
+@includo std("");
+
+typedef![s] struct {
+    char buffer[s + 1];
+
+    new
+
+    size_t len() const {
+        return s - .remaining_space();
+    }
+} small_string_t;

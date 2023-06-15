@@ -1,1 +1,6 @@
-void main() { }
+// this file is not related to the cxc compiler's source code
+// it is used to test the compiler quickly on new examples
+
+int main() {
+    return 0;
+}

@@ -10,6 +10,10 @@ int main(int argc, char const* const* argv) {
 	compilation_tower_t tower = create_compilation_tower(argv[1]);
     compilation_tower_read_file(&tower);
 
+    compilation_tower_tokenizer(&tower);
+    // compilation_tower_dparser(&tower);
+    // compilation_tower_semanalyzer(&tower);
+
     drop_compilation_tower(&tower);
 	return 0;
 }

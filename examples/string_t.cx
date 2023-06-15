@@ -18,7 +18,7 @@
         @dbg(c);
 
     // "he", but you are gonna have problems with null terminator
-    const s2 = string_t.from_str(s.buffer, 2);
+    const s2 = string_t.from_str![2]( s.buffer);
     @expect(s != s2);
 }
 

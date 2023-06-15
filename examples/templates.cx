@@ -2,10 +2,10 @@
 // for leaving certain values un initialized.
 // `@undef` can be used also with implicit undef
 @use_feature explicit_undef;
-@import package("mem") mem;
+@import mem;
 
 // or maybe make templates a use_feature with lexer hack for `<`?
-typedef[t] struct {
+typedef![t] struct {
     t*     buffer;
     size_t capacity;
     size_t length;
@@ -16,7 +16,7 @@ typedef[t] struct {
         const capacity = length * 2;
 
         return (@this_t) {
-            .buffer   = mem.alloc_array[t](capacity),
+            .buffer   = mem.alloc_array![t](capacity),
             .capacity = capacity,
             .length   = length,
         };
@@ -40,7 +40,7 @@ void main() {
     //       * overload operator `[]`
     //       * iter the item in foreach
 
-    vec_t[int32_t] numbers = { 1, 2, 3 };
+    vec_t![int32_t] numbers = { 1, 2, 3 };
     numbers[0] = numbers[1] - 2;
 
     for (int32_t n : numbers)
