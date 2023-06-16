@@ -9,15 +9,18 @@
 
 typedef struct {
     compilation_tower_t* tower;
-    size_t source_index;
     id_hash_t hash_seed;
+
+    size_t source_index;
+    size_t source_line;
 } tokenizer_t;
 
 tokenizer_t create_tokenizer(compilation_tower_t* c) {
     return (tokenizer_t) {
         .tower = c,
+        .hash_seed = time(NULL),
         .source_index = 0,
-        .hash_seed = time(NULL)
+        .source_line = 0,
     };
 }
 
@@ -63,7 +66,7 @@ void tokenizer_maybe_resize_tokens(tokenizer_t* t) {
     const size_t old_sizeof_kinds = sizeof(token_kind_t) * t->tower->tokens.capacity;
     const size_t old_sizeof_values = sizeof(token_value_t) * t->tower->tokens.capacity;
 
-    t->tower->tokens.capacity *= 2;
+    t->tower->tokens.capacity *= 4;
     const size_t sizeof_kinds = sizeof(token_kind_t) * t->tower->tokens.capacity;
     const size_t sizeof_values = sizeof(token_value_t) * t->tower->tokens.capacity;
 
@@ -109,7 +112,7 @@ void tokenizer_maybe_resize_ids(tokenizer_t* t) {
     const size_t old_sizeof_lengths = sizeof(id_length_t) * ids->capacity;
     const size_t old_sizeof_hashes = sizeof(id_hash_t) * ids->capacity;
 
-    ids->capacity *= 2;
+    ids->capacity *= 4;
     const size_t sizeof_contents = sizeof(id_content_t) * ids->capacity;
     const size_t sizeof_lengths = sizeof(id_length_t) * ids->capacity;
     const size_t sizeof_hashes = sizeof(id_hash_t) * ids->capacity;
@@ -249,7 +252,7 @@ token_value_t parse_word_as_num(
 
     for (id_length_t i = 0; i < length; i++) {
         char c = content[i];
-        // assert(is_digit_char(c));
+        assert(is_digit_char(c));
 
         result = result * 10 + (c - '0');
     }
@@ -300,6 +303,11 @@ bool word_is_keyword(
     id_length_t length,
     token_kind_t* out_kind
 ) {
+    // this tokenizer only support keywords
+    // that fit in 8bytes
+    if (length > 8)
+        return false;
+
     // fixed word
     uint64_t fw = 0;
 
@@ -382,6 +390,8 @@ void tokenizer_skip_white(tokenizer_t* t) {
                 break;
 
             case '\n':
+                t->source_line++;
+                /* fallthrough */
             case ' ':
                 break;
 
@@ -406,72 +416,22 @@ bool tokenizer_has_str_end_char(tokenizer_t* t) {
     return (c == '"') | (c == '\0');
 }
 
-bool tokenizer_can_append_str_literal(tokenizer_t* t) {
-    return
-        t->tower->tokens.str_literals.length + 1 <=
-        t->tower->tokens.str_literals.capacity;
-}
-
-void tokenizer_maybe_resize_str_literals(
-    tokenizer_t* t
-) {
-    if (tokenizer_can_append_str_literal(t))
-        return;
-
-    str_literals_t* const str_literals = &t->tower->tokens.str_literals;
-
-    const size_t old_sizeof_contents = sizeof(str_literal_content_t) * str_literals->capacity;
-    const size_t old_sizeof_lengths = sizeof(str_literal_length_t) * str_literals->capacity;
-
-    str_literals->capacity *= 2;
-    const size_t sizeof_contents = sizeof(str_literal_content_t) * str_literals->capacity;
-    const size_t sizeof_lengths = sizeof(str_literal_length_t) * str_literals->capacity;
-
-    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths);
-
-    str_literal_content_t* const contents = (str_literal_content_t*)(joint + 0);
-    str_literal_length_t* const lengths = (str_literal_length_t*)(joint + sizeof_contents);
-
-    memcpy((void*)contents, str_literals->contents, old_sizeof_contents);
-    memcpy((void*)lengths, str_literals->lengths, old_sizeof_lengths);
-    free((void*)str_literals->contents);
-
-    str_literals->contents = contents;
-    str_literals->lengths = lengths;
-}
-
-uint16_t tokenizer_append_str_literal(
-    tokenizer_t* t,
-    str_literal_content_t content,
-    str_literal_length_t length
-) {
-    tokenizer_maybe_resize_str_literals(t);
-
-    str_literals_t* const str_literals = &t->tower->tokens.str_literals;
-    const uint16_t idx = str_literals->length;
-
-    str_literals->contents[idx] = content;
-    str_literals->lengths[idx] = length;
-    str_literals->length++;
-
-    return idx;
-}
-
 void tokenizer_tokenize_str(tokenizer_t* t, token_value_t* out_value) {
     // skipping the first `"`
     tokenizer_skip(t);
 
-    const str_literal_content_t content = tokenizer_cur_addr(t);
     const size_t idx = t->source_index;
 
     while (!tokenizer_has_str_end_char(t))
         tokenizer_skip(t);
 
-    const str_literal_length_t length = t->source_index - idx;
+    const uint32_t length = t->source_index - idx;
     // the string may be enclosed
-    assert(content[length] == '"');
+    // so i check if the last character of the token was an apex
+    assert(t->tower->source_code[idx + length] == '"');
 
-    *out_value = tokenizer_append_str_literal(t, content, length);
+    ((uint32_t*)out_value)[0] = idx;
+    ((uint32_t*)out_value)[1] = length;
 }
 
 void tokenizer_next_token(tokenizer_t* t) {

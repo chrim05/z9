@@ -21,13 +21,18 @@ int main(int argc, char const* const* argv) {
     clock_t tokenizer_end = clock();
     clock_t tokenizer_time = tokenizer_end - tokenizer_start;
 
-    // compilation_tower_dparser(&tower);
+    clock_t dparser_start = clock();
+    compilation_tower_dparser(&tower);
+    clock_t dparser_end = clock();
+    clock_t dparser_time = dparser_end - dparser_start;
+
     // compilation_tower_semanalyzer(&tower);
 
     printf("reader_time+cpp.exe:\t%ums\n", CLOCK_TO_MS(reader_time));
     printf("tokenizer_time:\t\t%ums\n", CLOCK_TO_MS(tokenizer_time));
+    printf("dparser_time:\t\t%ums\n", CLOCK_TO_MS(dparser_time));
     
-    // /*
+    /*
     fprintf(stderr, "\nIdentifiers\n");
 
     for (size_t i = 0; i < tower.tokens.ids.length; i++)
@@ -53,7 +58,6 @@ int main(int argc, char const* const* argv) {
             tower.tokens.str_literals.contents[i]
         );
 
-    /*
     fprintf(stderr, "-\nTokens\n");
 
     for (size_t i = 0; i < tower.tokens.length; i++)

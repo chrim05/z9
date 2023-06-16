@@ -19,20 +19,6 @@ ids_t create_ids(size_t initial_capacity) {
     };
 }
 
-str_literals_t create_str_literals(size_t initial_capacity) {
-    const size_t sizeof_contents = sizeof(str_literal_content_t) * initial_capacity;
-    const size_t sizeof_lengths = sizeof(str_literal_length_t) * initial_capacity;
-
-    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths);
-
-    return (str_literals_t) {
-        .contents = (str_literal_content_t*)(joint + 0),
-        .lengths = (str_literal_length_t*)(joint + sizeof_contents),
-        .length = 0,
-        .capacity = initial_capacity
-    };
-}
-
 tokens_t create_tokens(size_t initial_capacity) {
     const size_t sizeof_kinds = sizeof(token_kind_t) * initial_capacity;
     const size_t sizeof_values = sizeof(token_value_t) * initial_capacity;
@@ -44,8 +30,7 @@ tokens_t create_tokens(size_t initial_capacity) {
         .values = (token_value_t*)(joint + sizeof_kinds),
         .length = 0,
         .capacity = initial_capacity,
-        .ids = create_ids(initial_capacity / 4),
-        .str_literals = create_str_literals(400),
+        .ids = create_ids(initial_capacity / 4)
     };
 }
 
@@ -56,6 +41,25 @@ void compilation_tower_tokenizer(compilation_tower_t* c) {
     tokenizer_tokenize(&tokenizer);
 
     drop_tokenizer(&tokenizer);
+}
+
+// i intialize the declarations buffer with
+// a precise number, when i go out space
+// i resize the buffer;
+// this number should be just right. (not sure which
+// one pick)
+#define INITIAL_DECLNS_ALLOCATION_COUNT 1000
+
+void compilation_tower_dparser(compilation_tower_t* c) {
+    (void)c;
+    /*
+    c->declns = create_declns(INITIAL_DECLNS_ALLOCATION_COUNT);
+
+    tokenizer_t tokenizer = create_tokenizer(c);
+    tokenizer_tokenize(&tokenizer);
+
+    drop_tokenizer(&tokenizer);
+    */
 }
 
 char const* compilation_tower_preprocess_file(compilation_tower_t* c) {
