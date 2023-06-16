@@ -1,6 +1,9 @@
 // this file is not related to the cxc compiler's source code
 // it is used to test the compiler quickly on new examples
 
-char const* main() {
-    return "hello how are you?";
+#include <stdio.h>
+
+int main() {
+    printf("Hello world!\n");
+    return 0;
 }

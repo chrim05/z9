@@ -43,11 +43,26 @@ void drop_ids(ids_t* s);
 enum {
     TK_RETURN, TK_WHILE, TK_IF,
     TK_INT, TK_CONST, TK_CHAR, TK_VOID,
-    TK_ID, TK_NUM, TK_STR,
-    TK_LPAR = '(', TK_RPAR = ')',
+    TK_AUTO, TK_BREAK, TK_CASE, TK_CONTINUE,
+    TK_DEFAULT, TK_DO, TK_DOUBLE, TK_ELSE,
+    TK_ENUM, TK_EXTERN, TK_FLOAT, TK_FOR,
+    TK_GOTO, TK_LONG, TK_REGISTER, TK_SHORT,
+    TK_SIGNED, TK_SIZEOF, TK_STATIC, TK_STRUCT,
+    TK_SWITCH, TK_TYPEDEF, TK_UNION, TK_UNSIGNED,
+    TK_VOLATILE,
+
+    TK_LPAR   = '(', TK_RPAR   = ')',
     TK_LBRACE = '{', TK_RBRACE = '}',
     TK_LBRACK = '[', TK_RBRACK = ']',
-    TK_SEMI = ';', TK_STAR = '*'
+    TK_SEMI   = ';',
+    TK_STAR   = '*',
+
+    // ascii characters after 128 are not used
+    // so ID, NUM, etc... can use them as their code;
+    // this means that we can't lex those characters as symbols
+    // because they would be recognized as ids, nums etc..
+    // and this would lead to serious bugs
+    TK_ID = 130, TK_NUM, TK_STR,
 };
 
 typedef uint8_t  token_kind_t;

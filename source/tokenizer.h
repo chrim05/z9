@@ -257,7 +257,8 @@ token_value_t parse_word_as_num(
     return result;
 }
 
-#define KEYWORDS_COUNT 7
+// hardcoded keywords
+#define KEYWORDS_COUNT 32
 #define MAX_KEYWORD_LENGTH 8
 const char keywords[KEYWORDS_COUNT][MAX_KEYWORD_LENGTH] = {
     {'r','e','t','u','r','n',  0,  0},
@@ -266,7 +267,32 @@ const char keywords[KEYWORDS_COUNT][MAX_KEYWORD_LENGTH] = {
     {'i','n','t',  0,  0,  0,  0,  0},
     {'c','o','n','s','t',  0,  0,  0},
     {'c','h','a','r',  0,  0,  0,  0},
-    {'v','o','i','d',  0,  0,  0,  0}
+    {'v','o','i','d',  0,  0,  0,  0},
+    {'a','u','t','o',  0,  0,  0,  0},
+    {'b','r','e','a','k',  0,  0,  0},
+    {'c','a','s','e',  0,  0,  0,  0},
+    {'c','o','n','t','i','n','u','e'},
+    {'d','e','f','a','u','l','t',  0},
+    {'d','o',  0,  0,  0,  0,  0,  0},
+    {'d','o','u','b','l','e',  0,  0},
+    {'e','l','s','e',  0,  0,  0,  0},
+    {'e','n','u','m',  0,  0,  0,  0},
+    {'e','x','t','e','r','n',  0,  0},
+    {'f','l','o','a','t',  0,  0,  0},
+    {'f','o','r',  0,  0,  0,  0,  0},
+    {'g','o','t','o',  0,  0,  0,  0},
+    {'l','o','n','g',  0,  0,  0,  0},
+    {'r','e','g','i','s','t','e','r'},
+    {'s','h','o','r','t',  0,  0,  0},
+    {'s','i','g','n','e','d',  0,  0},
+    {'s','i','z','e','o','f',  0,  0},
+    {'s','t','a','t','i','c',  0,  0},
+    {'s','t','r','u','c','t',  0,  0},
+    {'s','w','i','t','c','h',  0,  0},
+    {'t','y','p','e','d','e','f',  0},
+    {'u','n','i','o','n',  0,  0,  0},
+    {'u','n','s','i','g','n','e','d'},
+    {'v','o','l','a','t','i','l','e'}
 };
 
 bool word_is_keyword(
@@ -369,6 +395,10 @@ void tokenizer_skip_white(tokenizer_t* t) {
 
 void tokenizer_tokenize_punctuation(tokenizer_t* t, token_kind_t* out_kind) {
     *out_kind = (token_kind_t)tokenizer_cur(t);
+
+    assert(*out_kind != TK_ID);
+    assert(*out_kind != TK_NUM);
+    assert(*out_kind != TK_STR);
 }
 
 bool tokenizer_has_str_end_char(tokenizer_t* t) {

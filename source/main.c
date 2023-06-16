@@ -53,12 +53,12 @@ int main(int argc, char const* const* argv) {
             tower.tokens.str_literals.contents[i]
         );
 
-    // /*
+    /*
     fprintf(stderr, "-\nTokens\n");
 
     for (size_t i = 0; i < tower.tokens.length; i++)
         fprintf(stderr, "k: %d, v: %u\n", tower.tokens.kinds[i], tower.tokens.values[i]);
-    // */
+    */
 
     drop_compilation_tower(&tower);
 	return 0;
