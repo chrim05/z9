@@ -3,6 +3,7 @@
 
 #include <memory.h>
 #include <time.h>
+#include <string.h>
 
 #include "compilation_tower.h"
 #include "misc.h"
@@ -13,14 +14,52 @@ typedef struct {
 
     size_t source_index;
     size_t source_line;
+    size_t index_of_linestart;
+    // an index to tokens_t.filepaths
+    uint16_t file;
 } tokenizer_t;
 
+uint16_t compilation_tower_append_filepath(
+    compilation_tower_t* c,
+    char const* path,
+    uint16_t length,
+    uint32_t hash
+) {
+    filepaths_t* const filepaths = &c->tokens.filepaths;
+    const uint16_t idx = filepaths->length;
+
+    filepaths->paths[idx] = path;
+    filepaths->lengths[idx] = length;
+    filepaths->hashes[idx] = hash;
+    filepaths->length++;
+
+    return idx;
+}
+
+id_hash_t hash_id(id_content_t content, id_length_t length, id_hash_t seed);
+void tokenizer_tokenize_str(tokenizer_t* t, token_value_t* out_value);
+
 tokenizer_t create_tokenizer(compilation_tower_t* c) {
+    const id_hash_t hash_seed = time(NULL);
+    const uint16_t filepath_len = strlen(c->filepath);
+    const uint16_t file = compilation_tower_append_filepath(
+        c,
+        c->filepath,
+        filepath_len,
+        // this may cause bugs when paths are bigger than
+        // 256 chars, however i don't really care
+        // since the path would just be truncated,
+        // no crash involved
+        hash_id(c->filepath, filepath_len, hash_seed)
+    );
+
     return (tokenizer_t) {
         .tower = c,
-        .hash_seed = time(NULL),
+        .hash_seed = hash_seed,
         .source_index = 0,
         .source_line = 0,
+        .index_of_linestart = 0,
+        .file = file,
     };
 }
 
@@ -65,34 +104,41 @@ void tokenizer_maybe_resize_tokens(tokenizer_t* t) {
 
     const size_t old_sizeof_kinds = sizeof(token_kind_t) * t->tower->tokens.capacity;
     const size_t old_sizeof_values = sizeof(token_value_t) * t->tower->tokens.capacity;
+    const size_t old_sizeof_locs = sizeof(token_loc_t) * t->tower->tokens.capacity;
 
-    t->tower->tokens.capacity *= 4;
+    t->tower->tokens.capacity *= 2;
     const size_t sizeof_kinds = sizeof(token_kind_t) * t->tower->tokens.capacity;
     const size_t sizeof_values = sizeof(token_value_t) * t->tower->tokens.capacity;
+    const size_t sizeof_locs = sizeof(token_loc_t) * t->tower->tokens.capacity;
 
-    uint8_t* const joint = malloc(sizeof_kinds + sizeof_values);
+    uint8_t* const joint = malloc(sizeof_kinds + sizeof_values + sizeof_locs);
 
     token_kind_t* const kinds = (token_kind_t*)(joint + 0);
     token_value_t* const values = (token_value_t*)(joint + sizeof_kinds);
+    token_loc_t* const locs = (token_loc_t*)(joint + sizeof_values);
 
     memcpy((void*)kinds, t->tower->tokens.kinds, old_sizeof_kinds);
     memcpy((void*)values, t->tower->tokens.values, old_sizeof_values);
+    memcpy((void*)locs, t->tower->tokens.locs, old_sizeof_locs);
     free((void*)t->tower->tokens.kinds);
 
     t->tower->tokens.kinds = kinds;
     t->tower->tokens.values = values;
+    t->tower->tokens.locs = locs;
 }
 
 void tokenizer_append_token(
     tokenizer_t* t,
     token_kind_t kind,
-    token_value_t value
+    token_value_t value,
+    token_loc_t loc
 ) {
     tokenizer_maybe_resize_tokens(t);
 
     const size_t idx = t->tower->tokens.length;
     t->tower->tokens.kinds[idx] = kind;
     t->tower->tokens.values[idx] = value;
+    t->tower->tokens.locs[idx] = loc;
     t->tower->tokens.length++;
 }
 
@@ -370,7 +416,62 @@ void tokenizer_tokenize_word(
     *out_value = tokenizer_append_id(t, content, length);
 }
 
+size_t tokenizer_cpp_get_linenumber(tokenizer_t* t) {
+    // skipping both the `#` and the whitespace
+    // after it
+    tokenizer_skip(t);
+    tokenizer_skip(t);
+
+    const id_content_t content = tokenizer_cur_addr(t);
+    const size_t idx = t->source_index;
+
+    // collecting the line number
+    while (tokenizer_has_cur(t) && is_digit_char(tokenizer_cur(t)))
+        tokenizer_skip(t);
+
+    id_length_t length = t->source_index - idx;
+
+    if (length == 0)
+        return 0;
+
+    return parse_word_as_num(content, length);
+}
+
+uint16_t tokenizer_cpp_get_file(tokenizer_t* t) {
+    // skipping the whitespace between
+    // the linenumber and the filepath
+    tokenizer_skip(t);
+
+    // a union is needed here to avoid
+    // "error: dereferencing type-punned pointer will break strict-aliasing rules"
+    // when compiling with optimizations
+    union { token_value_t v; uint32_t u[2]; } value;
+    tokenizer_tokenize_str(t, &value.v);
+
+    const uint32_t idx = value.u[0];
+    const uint32_t length = value.u[1];
+
+    filepaths_t* const filepaths = &t->tower->tokens.filepaths;
+    char const* const content = &t->tower->source_code[idx];
+
+    const id_hash_t hash = hash_id(content, length, t->hash_seed);
+
+    for (uint16_t i = 0; i < filepaths->length; i++)
+        if (hash == filepaths->hashes[i])
+            return i;
+
+    return compilation_tower_append_filepath(t->tower, content, length, hash);
+}
+
 void tokenizer_skip_cpp(tokenizer_t* t) {
+    // maybe the hashtag is not from cpp
+    size_t new_source_line = tokenizer_cpp_get_linenumber(t);
+
+    if (new_source_line != 0) {
+        t->source_line = new_source_line - 1;
+        t->file = tokenizer_cpp_get_file(t);
+    }
+
     while (tokenizer_has_cur(t) && tokenizer_cur(t) != '\n')
         tokenizer_skip(t);
 }
@@ -390,6 +491,7 @@ void tokenizer_skip_white(tokenizer_t* t) {
                 break;
 
             case '\n':
+                t->index_of_linestart = t->source_index + 1;
                 t->source_line++;
                 /* fallthrough */
             case ' ':
@@ -434,6 +536,20 @@ void tokenizer_tokenize_str(tokenizer_t* t, token_value_t* out_value) {
     ((uint32_t*)out_value)[1] = length;
 }
 
+uint16_t tokenizer_col(tokenizer_t* t) {
+    return t->source_index - t->index_of_linestart;
+}
+
+token_loc_t tokenizer_loc(tokenizer_t* t) {
+    return (token_loc_t) {
+        // i add one, since line zero doesn't exist
+        .line = t->source_line + 1,
+        // the same here with columns
+        .col = tokenizer_col(t) + 1,
+        .file = t->file,
+    };
+}
+
 void tokenizer_next_token(tokenizer_t* t) {
     tokenizer_skip_white(t);
 
@@ -442,6 +558,7 @@ void tokenizer_next_token(tokenizer_t* t) {
 
     token_kind_t kind;
     token_value_t value;
+    token_loc_t loc = tokenizer_loc(t);
     char c = tokenizer_cur(t);
 
     if (is_word_char(c))
@@ -454,7 +571,7 @@ void tokenizer_next_token(tokenizer_t* t) {
         tokenizer_tokenize_punctuation(t, &kind);
     
     tokenizer_skip(t);
-    tokenizer_append_token(t, kind, value);
+    tokenizer_append_token(t, kind, value, loc);
 }
 
 void tokenizer_tokenize(tokenizer_t* t) {

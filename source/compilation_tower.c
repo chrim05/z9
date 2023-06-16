@@ -22,15 +22,18 @@ ids_t create_ids(size_t initial_capacity) {
 tokens_t create_tokens(size_t initial_capacity) {
     const size_t sizeof_kinds = sizeof(token_kind_t) * initial_capacity;
     const size_t sizeof_values = sizeof(token_value_t) * initial_capacity;
+    const size_t sizeof_locs = sizeof(token_loc_t) * initial_capacity;
 
-    uint8_t* const joint = malloc(sizeof_kinds + sizeof_values);
+    uint8_t* const joint = malloc(sizeof_kinds + sizeof_values + sizeof_locs);
 
     return (tokens_t) {
         .kinds = (token_kind_t*)(joint + 0),
         .values = (token_value_t*)(joint + sizeof_kinds),
+        .locs = (token_loc_t*)(joint + sizeof_values),
         .length = 0,
         .capacity = initial_capacity,
-        .ids = create_ids(initial_capacity / 4)
+        .ids = create_ids(initial_capacity / 4),
+        .filepaths.length = 0,
     };
 }
 

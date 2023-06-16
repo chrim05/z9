@@ -52,13 +52,34 @@ enum {
     TK_ID = 130, TK_NUM, TK_STR,
 };
 
+#define MAX_FILEPATHS 300
+
+// here i store all filepaths
+// useful for tokens' locations
+// which may point to this struct
+// instead of having heavy file
+// info for each token
+typedef struct {
+    uint16_t length;
+    // uint16_t capacity;
+
+    char const* paths[MAX_FILEPATHS];
+    uint16_t    lengths[MAX_FILEPATHS];
+    uint32_t    hashes[MAX_FILEPATHS];
+} filepaths_t;
+
 typedef uint8_t  token_kind_t;
 typedef uint64_t token_value_t;
-// typedef uint32_t token_value_t;
+typedef struct {
+    uint32_t line; // the line of token in source code
+    uint16_t col;  // the column of token in source code
+    uint16_t file; // index to tokens_t.filepaths
+} token_loc_t;
 
 typedef struct {
     token_kind_t*  kinds;  // jointly allocated
     token_value_t* values; // jointly allocated
+    token_loc_t*   locs;   // jointly allocated
 
     // these are used to append and resize `kinds`
     size_t length;
@@ -67,9 +88,9 @@ typedef struct {
     // when token kind is `id`
     // then, the token value is an index to this array
     ids_t ids;
-    // instead, when token kind is `str` the token value
-    // is and index to this one
-    // str_literals_t str_literals;
+    // the tokens' locations have an index
+    // to this array, which contains files info
+    filepaths_t filepaths;
 } tokens_t;
 
 void drop_tokens(tokens_t* t);
