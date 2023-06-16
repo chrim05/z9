@@ -76,7 +76,10 @@ size_t get_file_size(FILE* stream) {
 }
 
 size_t read_file_into(char* filebuffer, FILE* stream, size_t filesize) {
-    return fread(filebuffer, 1, filesize, stream);
+    filesize = fread(filebuffer, 1, filesize, stream);
+    filebuffer[filesize] = '\0';
+
+    return filesize;
 }
 
 void dbg_impl(char const* message, char const* file, int line) {

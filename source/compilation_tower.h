@@ -7,10 +7,14 @@
 
 typedef char const* string_value_content_t;
 typedef uint32_t    string_value_length_t;
+typedef uint32_t    string_value_hash_t;
 
+// string values are all the identifiers
+// 
 typedef struct {
     string_value_content_t* contents; // jointly allocated
     string_value_length_t*  lengths;  // jointly allocated
+    string_value_hash_t*    hashes;   // jointly allocated
 
     // these are used to append and resize `contents` and `lengths`
     size_t length;
@@ -22,6 +26,7 @@ void drop_string_values(string_values_t* s);
 // all the token kinds
 enum {
     TK_RETURN, TK_WHILE, TK_IF,
+    TK_INT,
     TK_ID, TK_NUM,
     TK_LPAR = '(', TK_RPAR = ')',
     TK_LBRACE = '{', TK_RBRACE = '}',

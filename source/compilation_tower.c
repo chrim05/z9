@@ -6,12 +6,14 @@
 string_values_t create_string_values(size_t initial_capacity) {
     const size_t sizeof_contents = sizeof(string_value_content_t) * initial_capacity;
     const size_t sizeof_lengths = sizeof(string_value_length_t) * initial_capacity;
+    const size_t sizeof_hashes = sizeof(string_value_hash_t) * initial_capacity;
 
-    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths);
+    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths + sizeof_hashes);
 
     return (string_values_t) {
         .contents = (string_value_content_t*)(joint + 0),
         .lengths = (string_value_length_t*)(joint + sizeof_contents),
+        .hashes = (string_value_hash_t*)(joint + sizeof_contents + sizeof_lengths),
         .length = 0,
         .capacity = initial_capacity
     };
@@ -70,7 +72,7 @@ void compilation_tower_read_file(compilation_tower_t* c) {
     // the storage too frequently.
     // with 1MB of source code we get 3MB of allocated memory
     c->source_size = get_file_size(filestream);
-    c->source_code = malloc(c->source_size);
+    c->source_code = malloc(c->source_size + 1);
 
     // reading the file into the buffer
     // and updating the source size, i don't know why but

@@ -2,6 +2,7 @@
 #define SOURCE_TOKENIZER_H
 
 #include <memory.h>
+#include <time.h>
 
 #include "compilation_tower.h"
 #include "misc.h"
@@ -9,12 +10,14 @@
 typedef struct {
     compilation_tower_t* tower;
     size_t source_index;
+    string_value_hash_t string_values_hash_seed;
 } tokenizer_t;
 
 tokenizer_t create_tokenizer(compilation_tower_t* c) {
     return (tokenizer_t) {
         .tower = c,
-        .source_index = 0
+        .source_index = 0,
+        .string_values_hash_seed = time(NULL)
     };
 }
 
@@ -104,22 +107,104 @@ void tokenizer_maybe_resize_string_values(tokenizer_t* t) {
 
     const size_t old_sizeof_contents = sizeof(string_value_content_t) * string_values->capacity;
     const size_t old_sizeof_lengths = sizeof(string_value_length_t) * string_values->capacity;
+    const size_t old_sizeof_hashes = sizeof(string_value_hash_t) * string_values->capacity;
 
     string_values->capacity *= 2;
     const size_t sizeof_contents = sizeof(string_value_content_t) * string_values->capacity;
     const size_t sizeof_lengths = sizeof(string_value_length_t) * string_values->capacity;
+    const size_t sizeof_hashes = sizeof(string_value_hash_t) * string_values->capacity;
 
-    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths);
+    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths + sizeof_hashes);
 
     string_value_content_t* const contents = (string_value_content_t*)(joint + 0);
     string_value_length_t* const lengths = (string_value_length_t*)(joint + sizeof_contents);
+    string_value_hash_t* const hashes = (string_value_hash_t*)(joint + sizeof_contents + sizeof_lengths);
 
     memcpy((void*)contents, string_values->contents, old_sizeof_contents);
     memcpy((void*)lengths, string_values->lengths, old_sizeof_lengths);
+    memcpy((void*)hashes, string_values->hashes, old_sizeof_hashes);
     free((void*)string_values->contents);
 
     string_values->contents = contents;
     string_values->lengths = lengths;
+    string_values->hashes = hashes;
+}
+
+bool tokenizer_is_string_value(
+    tokenizer_t* t,
+    string_value_hash_t hash,
+    size_t* out_idx
+) {
+    string_values_t* const string_values = &t->tower->tokens.string_values;
+
+    for (size_t i = 0; i < string_values->length; i++)
+        if (string_values->hashes[i] == hash) {
+            *out_idx = i;
+            return true;
+        }
+
+    return false;
+}
+
+void tokenizer_set_string_value(
+    tokenizer_t* t,
+    size_t idx,
+    string_value_content_t content,
+    string_value_length_t length,
+    string_value_hash_t hash
+) {
+    string_values_t* const string_values = &t->tower->tokens.string_values;
+
+    string_values->contents[idx] = content;
+    string_values->lengths[idx] = length;
+    string_values->hashes[idx] = hash;
+}
+
+// implementation from
+// https://github.com/abrandoned/murmur2/blob/master/MurmurHash2.c
+string_value_hash_t hash_string_value(
+    string_value_content_t content,
+    string_value_length_t length,
+    string_value_hash_t seed
+) {
+    const uint32_t m = 0x5bd1e995;
+    const int32_t r = 24;
+
+    uint32_t h = seed ^ length;
+    uint8_t const* data = (uint8_t const*)content;
+
+    while (length >= 4) {
+        uint32_t k = *(uint32_t*)data;
+
+        k *= m;
+        k ^= k >> r;
+        k *= m;
+
+        h *= m;
+        h ^= k;
+
+        data += 4;
+        length -= 4;
+    }
+
+    switch (length) {
+        case 3:
+            h ^= data[2] << 16;
+            /* fallthrough */
+        case 2:
+            h ^= data[1] << 8;
+            /* fallthrough */
+        case 1:
+            h ^= data[0];
+            h *= m;
+            break;
+    };
+    
+    h ^= h >> 13;
+    h *= m;
+    h ^= h >> 15;
+
+    return h;
 }
 
 size_t tokenizer_append_string_value(
@@ -127,15 +212,20 @@ size_t tokenizer_append_string_value(
     string_value_content_t content,
     string_value_length_t length
 ) {
-    tokenizer_maybe_resize_string_values(t);
-
+    const string_value_hash_t hash_seed = t->string_values_hash_seed;
+    const string_value_hash_t hash = hash_string_value(content, length, hash_seed);
     string_values_t* const string_values = &t->tower->tokens.string_values;
+    size_t idx = string_values->length;
 
-    const size_t idx = string_values->length;
-    string_values->contents[idx] = content;
-    string_values->lengths[idx] = length;
+    if (tokenizer_is_string_value(t, hash, &idx)) {
+        tokenizer_set_string_value(t, idx, content, length, hash);
+        return idx;
+    }
+
+    tokenizer_maybe_resize_string_values(t);
     string_values->length++;
 
+    tokenizer_set_string_value(t, idx, content, length, hash);
     return idx;
 }
 
@@ -144,7 +234,11 @@ char const* tokenizer_cur_addr(tokenizer_t* t) {
 }
 
 bool tokenizer_has_word_char(tokenizer_t* t) {
-    return tokenizer_has_cur(t) && is_word_char(tokenizer_cur(t));
+    // we can avoid checking for `tokenizer_has_cur`
+    // since the source code has the null terminator
+    // and this function will return false whether
+    // it's matched
+    return is_word_char(tokenizer_cur(t));
 }
 
 token_value_t parse_word_as_num(
@@ -155,7 +249,7 @@ token_value_t parse_word_as_num(
 
     for (string_value_length_t i = 0; i < length; i++) {
         char c = content[i];
-        assert(is_digit_char(c));
+        // assert(is_digit_char(c));
 
         result = result * 10 + (c - '0');
     }
@@ -163,17 +257,14 @@ token_value_t parse_word_as_num(
     return result;
 }
 
-#define KEYWORDS_COUNT 3
+#define KEYWORDS_COUNT 4
 #define MAX_KEYWORD_LENGTH 8
-const char keyword_contents[KEYWORDS_COUNT][MAX_KEYWORD_LENGTH] = {
+const char keywords[KEYWORDS_COUNT][MAX_KEYWORD_LENGTH] = {
     {'r','e','t','u','r','n',  0,  0},
     {'w','h','i','l','e',  0,  0,  0},
-    {'i','f',  0,  0,  0,  0,  0,  0}
+    {'i','f',  0,  0,  0,  0,  0,  0},
+    {'i','n','t',  0,  0,  0,  0,  0},
 };
-
-inline uint64_t fw_as_word(char const* sentinel_buffer) {
-    return *(uint64_t const*)sentinel_buffer;
-}
 
 bool word_is_keyword(
     string_value_content_t content,
@@ -184,13 +275,16 @@ bool word_is_keyword(
     uint64_t fw = 0;
 
     // copying the word into a fixed buffer
+    // where the unused bytes on the right
+    // are zero
+    // memcpy resulted slower in stress test
     for (uint8_t i = 0; i < length; i++)
         ((char*)&fw)[i] = content[i];
 
     // comparing the fixed buffer to known keywords
     // in an efficient way
     for (uint8_t i = 0; i < KEYWORDS_COUNT; i++) {
-        const uint64_t kw = *(uint64_t const*)(&keyword_contents[i]);
+        const uint64_t kw = *(uint64_t const*)(&keywords[i]);
 
         if (kw == fw) {
             *out_kind = i;

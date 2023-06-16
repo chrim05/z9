@@ -1,7 +1,9 @@
 @includo std("stdint.h");
 
 // disallowing int implicit casts
-// (it actually does a lot of other things)
+// (it actually does a lot of other things
+//  such as forcing to convert variables to const
+//  when not used as mutable)
 @use_feature strict_rules;
 
 typedef enum struct {
