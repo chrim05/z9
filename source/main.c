@@ -28,18 +28,33 @@ int main(int argc, char const* const* argv) {
     printf("tokenizer_time:\t\t%ums\n", CLOCK_TO_MS(tokenizer_time));
     
     // /*
-    for (size_t i = 0; i < tower.tokens.string_values.length; i++)
+    fprintf(stderr, "\nIdentifiers\n");
+
+    for (size_t i = 0; i < tower.tokens.ids.length; i++)
         fprintf(
             stderr,
-            "i: %u, h: %u, s(len: %u): '%.*s'\n",
+            "i: %u, h: %u, id(len: %u): '%.*s'\n",
             i,
-            tower.tokens.string_values.hashes[i],
-            tower.tokens.string_values.lengths[i],
-            tower.tokens.string_values.lengths[i],
-            tower.tokens.string_values.contents[i]
+            tower.tokens.ids.hashes[i],
+            tower.tokens.ids.lengths[i],
+            tower.tokens.ids.lengths[i],
+            tower.tokens.ids.contents[i]
         );
 
-    fprintf(stderr, "-\n");
+    fprintf(stderr, "-\nString Literals\n");
+
+    for (size_t i = 0; i < tower.tokens.str_literals.length; i++)
+        fprintf(
+            stderr,
+            "i: %u, str(len: %u): '%.*s'\n",
+            i,
+            tower.tokens.str_literals.lengths[i],
+            tower.tokens.str_literals.lengths[i],
+            tower.tokens.str_literals.contents[i]
+        );
+
+    // /*
+    fprintf(stderr, "-\nTokens\n");
 
     for (size_t i = 0; i < tower.tokens.length; i++)
         fprintf(stderr, "k: %d, v: %u\n", tower.tokens.kinds[i], tower.tokens.values[i]);

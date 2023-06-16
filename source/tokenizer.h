@@ -10,14 +10,14 @@
 typedef struct {
     compilation_tower_t* tower;
     size_t source_index;
-    string_value_hash_t string_values_hash_seed;
+    id_hash_t hash_seed;
 } tokenizer_t;
 
 tokenizer_t create_tokenizer(compilation_tower_t* c) {
     return (tokenizer_t) {
         .tower = c,
         .source_index = 0,
-        .string_values_hash_seed = time(NULL)
+        .hash_seed = time(NULL)
     };
 }
 
@@ -93,52 +93,52 @@ void tokenizer_append_token(
     t->tower->tokens.length++;
 }
 
-bool tokenizer_can_append_string_value(tokenizer_t* t) {
+bool tokenizer_can_append_id(tokenizer_t* t) {
     return
-        t->tower->tokens.string_values.length + 1 <=
-        t->tower->tokens.string_values.capacity;
+        t->tower->tokens.ids.length + 1 <=
+        t->tower->tokens.ids.capacity;
 }
 
-void tokenizer_maybe_resize_string_values(tokenizer_t* t) {
-    if (tokenizer_can_append_string_value(t))
+void tokenizer_maybe_resize_ids(tokenizer_t* t) {
+    if (tokenizer_can_append_id(t))
         return;
 
-    string_values_t* const string_values = &t->tower->tokens.string_values;
+    ids_t* const ids = &t->tower->tokens.ids;
 
-    const size_t old_sizeof_contents = sizeof(string_value_content_t) * string_values->capacity;
-    const size_t old_sizeof_lengths = sizeof(string_value_length_t) * string_values->capacity;
-    const size_t old_sizeof_hashes = sizeof(string_value_hash_t) * string_values->capacity;
+    const size_t old_sizeof_contents = sizeof(id_content_t) * ids->capacity;
+    const size_t old_sizeof_lengths = sizeof(id_length_t) * ids->capacity;
+    const size_t old_sizeof_hashes = sizeof(id_hash_t) * ids->capacity;
 
-    string_values->capacity *= 2;
-    const size_t sizeof_contents = sizeof(string_value_content_t) * string_values->capacity;
-    const size_t sizeof_lengths = sizeof(string_value_length_t) * string_values->capacity;
-    const size_t sizeof_hashes = sizeof(string_value_hash_t) * string_values->capacity;
+    ids->capacity *= 2;
+    const size_t sizeof_contents = sizeof(id_content_t) * ids->capacity;
+    const size_t sizeof_lengths = sizeof(id_length_t) * ids->capacity;
+    const size_t sizeof_hashes = sizeof(id_hash_t) * ids->capacity;
 
     uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths + sizeof_hashes);
 
-    string_value_content_t* const contents = (string_value_content_t*)(joint + 0);
-    string_value_length_t* const lengths = (string_value_length_t*)(joint + sizeof_contents);
-    string_value_hash_t* const hashes = (string_value_hash_t*)(joint + sizeof_contents + sizeof_lengths);
+    id_content_t* const contents = (id_content_t*)(joint + 0);
+    id_length_t* const lengths = (id_length_t*)(joint + sizeof_contents);
+    id_hash_t* const hashes = (id_hash_t*)(joint + sizeof_contents + sizeof_lengths);
 
-    memcpy((void*)contents, string_values->contents, old_sizeof_contents);
-    memcpy((void*)lengths, string_values->lengths, old_sizeof_lengths);
-    memcpy((void*)hashes, string_values->hashes, old_sizeof_hashes);
-    free((void*)string_values->contents);
+    memcpy((void*)contents, ids->contents, old_sizeof_contents);
+    memcpy((void*)lengths, ids->lengths, old_sizeof_lengths);
+    memcpy((void*)hashes, ids->hashes, old_sizeof_hashes);
+    free((void*)ids->contents);
 
-    string_values->contents = contents;
-    string_values->lengths = lengths;
-    string_values->hashes = hashes;
+    ids->contents = contents;
+    ids->lengths = lengths;
+    ids->hashes = hashes;
 }
 
-bool tokenizer_is_string_value(
+bool tokenizer_is_id(
     tokenizer_t* t,
-    string_value_hash_t hash,
+    id_hash_t hash,
     size_t* out_idx
 ) {
-    string_values_t* const string_values = &t->tower->tokens.string_values;
+    ids_t* const ids = &t->tower->tokens.ids;
 
-    for (size_t i = 0; i < string_values->length; i++)
-        if (string_values->hashes[i] == hash) {
+    for (size_t i = 0; i < ids->length; i++)
+        if (ids->hashes[i] == hash) {
             *out_idx = i;
             return true;
         }
@@ -146,26 +146,26 @@ bool tokenizer_is_string_value(
     return false;
 }
 
-void tokenizer_set_string_value(
+void tokenizer_set_id(
     tokenizer_t* t,
     size_t idx,
-    string_value_content_t content,
-    string_value_length_t length,
-    string_value_hash_t hash
+    id_content_t content,
+    id_length_t length,
+    id_hash_t hash
 ) {
-    string_values_t* const string_values = &t->tower->tokens.string_values;
+    ids_t* const ids = &t->tower->tokens.ids;
 
-    string_values->contents[idx] = content;
-    string_values->lengths[idx] = length;
-    string_values->hashes[idx] = hash;
+    ids->contents[idx] = content;
+    ids->lengths[idx] = length;
+    ids->hashes[idx] = hash;
 }
 
 // implementation from
 // https://github.com/abrandoned/murmur2/blob/master/MurmurHash2.c
-string_value_hash_t hash_string_value(
-    string_value_content_t content,
-    string_value_length_t length,
-    string_value_hash_t seed
+id_hash_t hash_id(
+    id_content_t content,
+    id_length_t length,
+    id_hash_t seed
 ) {
     const uint32_t m = 0x5bd1e995;
     const int32_t r = 24;
@@ -207,25 +207,25 @@ string_value_hash_t hash_string_value(
     return h;
 }
 
-size_t tokenizer_append_string_value(
+size_t tokenizer_append_id(
     tokenizer_t* t,
-    string_value_content_t content,
-    string_value_length_t length
+    id_content_t content,
+    id_length_t length
 ) {
-    const string_value_hash_t hash_seed = t->string_values_hash_seed;
-    const string_value_hash_t hash = hash_string_value(content, length, hash_seed);
-    string_values_t* const string_values = &t->tower->tokens.string_values;
-    size_t idx = string_values->length;
+    const id_hash_t hash_seed = t->hash_seed;
+    const id_hash_t hash = hash_id(content, length, hash_seed);
+    ids_t* const ids = &t->tower->tokens.ids;
+    size_t idx = ids->length;
 
-    if (tokenizer_is_string_value(t, hash, &idx)) {
-        tokenizer_set_string_value(t, idx, content, length, hash);
+    if (tokenizer_is_id(t, hash, &idx)) {
+        tokenizer_set_id(t, idx, content, length, hash);
         return idx;
     }
 
-    tokenizer_maybe_resize_string_values(t);
-    string_values->length++;
+    tokenizer_maybe_resize_ids(t);
+    ids->length++;
 
-    tokenizer_set_string_value(t, idx, content, length, hash);
+    tokenizer_set_id(t, idx, content, length, hash);
     return idx;
 }
 
@@ -242,12 +242,12 @@ bool tokenizer_has_word_char(tokenizer_t* t) {
 }
 
 token_value_t parse_word_as_num(
-    string_value_content_t content,
-    string_value_length_t length
+    id_content_t content,
+    id_length_t length
 ) {
     token_value_t result = 0;
 
-    for (string_value_length_t i = 0; i < length; i++) {
+    for (id_length_t i = 0; i < length; i++) {
         char c = content[i];
         // assert(is_digit_char(c));
 
@@ -257,18 +257,21 @@ token_value_t parse_word_as_num(
     return result;
 }
 
-#define KEYWORDS_COUNT 4
+#define KEYWORDS_COUNT 7
 #define MAX_KEYWORD_LENGTH 8
 const char keywords[KEYWORDS_COUNT][MAX_KEYWORD_LENGTH] = {
     {'r','e','t','u','r','n',  0,  0},
     {'w','h','i','l','e',  0,  0,  0},
     {'i','f',  0,  0,  0,  0,  0,  0},
     {'i','n','t',  0,  0,  0,  0,  0},
+    {'c','o','n','s','t',  0,  0,  0},
+    {'c','h','a','r',  0,  0,  0,  0},
+    {'v','o','i','d',  0,  0,  0,  0}
 };
 
 bool word_is_keyword(
-    string_value_content_t content,
-    string_value_length_t length,
+    id_content_t content,
+    id_length_t length,
     token_kind_t* out_kind
 ) {
     // fixed word
@@ -300,14 +303,14 @@ void tokenizer_tokenize_word(
     token_kind_t* out_kind,
     token_value_t* out_value
 ) {
-    const string_value_content_t content = tokenizer_cur_addr(t);
-    string_value_length_t length = 0;
+    const id_content_t content = tokenizer_cur_addr(t);
+    const size_t idx = t->source_index;
 
     // collecting the word
-    while (tokenizer_has_word_char(t)) {
-        length++;
+    while (tokenizer_has_word_char(t))
         tokenizer_skip(t);
-    }
+
+    id_length_t length = t->source_index - idx;
 
     // going back to the last word's char
     // (tokernizer_next_token, which is the caller
@@ -330,7 +333,7 @@ void tokenizer_tokenize_word(
 
     // otherwise must be an identifier
     *out_kind = TK_ID;
-    *out_value = tokenizer_append_string_value(t, content, length);
+    *out_value = tokenizer_append_id(t, content, length);
 }
 
 void tokenizer_skip_cpp(tokenizer_t* t) {
@@ -339,7 +342,12 @@ void tokenizer_skip_cpp(tokenizer_t* t) {
 }
 
 void tokenizer_skip_white(tokenizer_t* t) {
-    while (tokenizer_has_cur(t)) {
+    // i don't need to check every time
+    // if reached eof, in fact i placed
+    // a null terminator at the end of the
+    // soure code, so that if i match '\0'
+    // i just break the cycle
+    while (true) {
         char c = tokenizer_cur(t);
 
         switch (c) {
@@ -363,6 +371,79 @@ void tokenizer_tokenize_punctuation(tokenizer_t* t, token_kind_t* out_kind) {
     *out_kind = (token_kind_t)tokenizer_cur(t);
 }
 
+bool tokenizer_has_str_end_char(tokenizer_t* t) {
+    char c = tokenizer_cur(t);
+    return (c == '"') | (c == '\0');
+}
+
+bool tokenizer_can_append_str_literal(tokenizer_t* t) {
+    return
+        t->tower->tokens.str_literals.length + 1 <=
+        t->tower->tokens.str_literals.capacity;
+}
+
+void tokenizer_maybe_resize_str_literals(
+    tokenizer_t* t
+) {
+    if (tokenizer_can_append_str_literal(t))
+        return;
+
+    str_literals_t* const str_literals = &t->tower->tokens.str_literals;
+
+    const size_t old_sizeof_contents = sizeof(str_literal_content_t) * str_literals->capacity;
+    const size_t old_sizeof_lengths = sizeof(str_literal_length_t) * str_literals->capacity;
+
+    str_literals->capacity *= 2;
+    const size_t sizeof_contents = sizeof(str_literal_content_t) * str_literals->capacity;
+    const size_t sizeof_lengths = sizeof(str_literal_length_t) * str_literals->capacity;
+
+    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths);
+
+    str_literal_content_t* const contents = (str_literal_content_t*)(joint + 0);
+    str_literal_length_t* const lengths = (str_literal_length_t*)(joint + sizeof_contents);
+
+    memcpy((void*)contents, str_literals->contents, old_sizeof_contents);
+    memcpy((void*)lengths, str_literals->lengths, old_sizeof_lengths);
+    free((void*)str_literals->contents);
+
+    str_literals->contents = contents;
+    str_literals->lengths = lengths;
+}
+
+uint16_t tokenizer_append_str_literal(
+    tokenizer_t* t,
+    str_literal_content_t content,
+    str_literal_length_t length
+) {
+    tokenizer_maybe_resize_str_literals(t);
+
+    str_literals_t* const str_literals = &t->tower->tokens.str_literals;
+    const uint16_t idx = str_literals->length;
+
+    str_literals->contents[idx] = content;
+    str_literals->lengths[idx] = length;
+    str_literals->length++;
+
+    return idx;
+}
+
+void tokenizer_tokenize_str(tokenizer_t* t, token_value_t* out_value) {
+    // skipping the first `"`
+    tokenizer_skip(t);
+
+    const str_literal_content_t content = tokenizer_cur_addr(t);
+    const size_t idx = t->source_index;
+
+    while (!tokenizer_has_str_end_char(t))
+        tokenizer_skip(t);
+
+    const str_literal_length_t length = t->source_index - idx;
+    // the string may be enclosed
+    assert(content[length] == '"');
+
+    *out_value = tokenizer_append_str_literal(t, content, length);
+}
+
 void tokenizer_next_token(tokenizer_t* t) {
     tokenizer_skip_white(t);
 
@@ -375,6 +456,10 @@ void tokenizer_next_token(tokenizer_t* t) {
 
     if (is_word_char(c))
         tokenizer_tokenize_word(t, &kind, &value);
+    else if (c == '"') {
+        kind = TK_STR;
+        tokenizer_tokenize_str(t, &value);
+    }
     else
         tokenizer_tokenize_punctuation(t, &kind);
     

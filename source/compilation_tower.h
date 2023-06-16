@@ -5,33 +5,49 @@
 
 #define TEMP_STORAGE_BYTES_SIZE 10000
 
-typedef char const* string_value_content_t;
-typedef uint32_t    string_value_length_t;
-typedef uint32_t    string_value_hash_t;
+typedef char const* id_content_t;
+typedef uint8_t     id_length_t;
+typedef uint32_t    id_hash_t;
 
-// string values are all the identifiers
-// 
 typedef struct {
-    string_value_content_t* contents; // jointly allocated
-    string_value_length_t*  lengths;  // jointly allocated
-    string_value_hash_t*    hashes;   // jointly allocated
+    // here i store all the identifiers used in the source code;
+    // i don't store dupplicates of the same identifier
+    // (that's why i also store their hashes)
+    // this will get me a huge performance improvement
+    // during sema
+    id_content_t* contents; // jointly allocated
+    id_length_t*  lengths;  // jointly allocated
+    id_hash_t*    hashes;   // jointly allocated
 
-    // these are used to append and resize `contents` and `lengths`
-    size_t length;
-    size_t capacity;
-} string_values_t;
+    // these are used to append and resize `contents`
+    uint32_t length;
+    uint32_t capacity;
+} ids_t;
 
-void drop_string_values(string_values_t* s);
+typedef char const* str_literal_content_t;
+typedef uint16_t    str_literal_length_t;
+
+typedef struct {
+    // here i store all the string literals
+    str_literal_content_t* contents; // jointly allocated
+    str_literal_length_t*  lengths;  // jointly allocated
+
+    // these are used to append and resize `contents`
+    uint16_t length;
+    uint16_t capacity;
+} str_literals_t;
+
+void drop_ids(ids_t* s);
 
 // all the token kinds
 enum {
     TK_RETURN, TK_WHILE, TK_IF,
-    TK_INT,
-    TK_ID, TK_NUM,
+    TK_INT, TK_CONST, TK_CHAR, TK_VOID,
+    TK_ID, TK_NUM, TK_STR,
     TK_LPAR = '(', TK_RPAR = ')',
     TK_LBRACE = '{', TK_RBRACE = '}',
     TK_LBRACK = '[', TK_RBRACK = ']',
-    TK_SEMI = ';'
+    TK_SEMI = ';', TK_STAR = '*'
 };
 
 typedef uint8_t  token_kind_t;
@@ -41,14 +57,16 @@ typedef struct {
     token_kind_t*  kinds;  // jointly allocated
     token_value_t* values; // jointly allocated
 
-    // these are used to append and resize `kinds` and `values`
+    // these are used to append and resize `kinds`
     size_t length;
     size_t capacity;
 
-    // when token kind is `id` or `string`
-    // or whatever has a string representation
+    // when token kind is `id`
     // then, the token value is an index to this array
-    string_values_t string_values;
+    ids_t ids;
+    // instead, when token kind is `str` the token value
+    // is and index to this one
+    str_literals_t str_literals;
 } tokens_t;
 
 void drop_tokens(tokens_t* t);

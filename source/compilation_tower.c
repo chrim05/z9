@@ -3,17 +3,31 @@
 #include "compilation_tower.h"
 #include "tokenizer.h"
 
-string_values_t create_string_values(size_t initial_capacity) {
-    const size_t sizeof_contents = sizeof(string_value_content_t) * initial_capacity;
-    const size_t sizeof_lengths = sizeof(string_value_length_t) * initial_capacity;
-    const size_t sizeof_hashes = sizeof(string_value_hash_t) * initial_capacity;
+ids_t create_ids(size_t initial_capacity) {
+    const size_t sizeof_contents = sizeof(id_content_t) * initial_capacity;
+    const size_t sizeof_lengths = sizeof(id_length_t) * initial_capacity;
+    const size_t sizeof_hashes = sizeof(id_hash_t) * initial_capacity;
 
     uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths + sizeof_hashes);
 
-    return (string_values_t) {
-        .contents = (string_value_content_t*)(joint + 0),
-        .lengths = (string_value_length_t*)(joint + sizeof_contents),
-        .hashes = (string_value_hash_t*)(joint + sizeof_contents + sizeof_lengths),
+    return (ids_t) {
+        .contents = (id_content_t*)(joint + 0),
+        .lengths = (id_length_t*)(joint + sizeof_contents),
+        .hashes = (id_hash_t*)(joint + sizeof_contents + sizeof_lengths),
+        .length = 0,
+        .capacity = initial_capacity
+    };
+}
+
+str_literals_t create_str_literals(size_t initial_capacity) {
+    const size_t sizeof_contents = sizeof(str_literal_content_t) * initial_capacity;
+    const size_t sizeof_lengths = sizeof(str_literal_length_t) * initial_capacity;
+
+    uint8_t* const joint = malloc(sizeof_contents + sizeof_lengths);
+
+    return (str_literals_t) {
+        .contents = (str_literal_content_t*)(joint + 0),
+        .lengths = (str_literal_length_t*)(joint + sizeof_contents),
         .length = 0,
         .capacity = initial_capacity
     };
@@ -30,7 +44,8 @@ tokens_t create_tokens(size_t initial_capacity) {
         .values = (token_value_t*)(joint + sizeof_kinds),
         .length = 0,
         .capacity = initial_capacity,
-        .string_values = create_string_values(initial_capacity / 4)
+        .ids = create_ids(initial_capacity / 4),
+        .str_literals = create_str_literals(400),
     };
 }
 
@@ -101,9 +116,9 @@ compilation_tower_t create_compilation_tower(char const* filepath) {
 
 void drop_tokens(tokens_t* t) {
     free(t->kinds);
-    drop_string_values(&t->string_values);
+    drop_ids(&t->ids);
 }
 
-void drop_string_values(string_values_t* s) {
+void drop_ids(ids_t* s) {
     free(s->contents);
 }
