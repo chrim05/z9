@@ -18,7 +18,7 @@
         @dbg(c);
 
     // "he", but you are gonna have problems with null terminator
-    const s2 = string_t.from_str![2]( s.buffer);
+    const s2 = string_t.from_str(2, s.buffer);
     @expect(s != s2);
 }
 
@@ -28,7 +28,12 @@ typedef struct {
     char*  buffer;
     size_t length;
 
-    @this_t from_str(char* text, size_t length) static {
+    // static parameters are like typedef parameters;
+    // both are template params and both must be declared
+    // before all other params; they are evaluated after
+    // typedef params but before everything other;
+    // see `templates.cx`
+    @this_t from_str(static size_t length, char* text) static {
         return (@this_t) {
             .buffer = (char*)text,
             .length = length

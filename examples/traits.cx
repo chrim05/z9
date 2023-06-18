@@ -14,7 +14,11 @@
 @includo std("stdbool.h");
 
 @includo string;
-@use_feature explicit_opt;
+// this also makes it mandatory
+// to explicitly declare all structs with `@opt`;
+// you can still use c struct memory layout
+// via `@reprc`
+@use_feature strict_rules;
 
 typedef @interface {
     string_t inspect() const;
@@ -72,7 +76,7 @@ void inspect(debug_i debuggable) {
     io.eprintln(debuggable.inspect());
 }
 
-void inspect_generic<debug_i t>(t debuggable) {
+void inspect_generic(typedef @impl(debug_i) t, t debuggable) {
     io.eprintln(debuggable.inspect());
 }
 
@@ -82,15 +86,16 @@ void inspect_generic<debug_i t>(t debuggable) {
     // and what about memory and `@box`?
     // i still didn't decide, this is just a sketch
     inspect(@box(n));
-    inspect_generic![complex_number_t](n);
+    inspect_generic(complex_number_t, n);
 }
 
 @test "arithmetic" {
     const n1 = complex_number_t.zero;
     const n2 = complex_number_t.i;
 
-    const box1 = @box![arithmetic_i, compare_i](n1);
-    const box2 = @box![arithmetic_i, compare_i](n2);
+    // i'm actually confused about this
+    const box1 = @box(arithmetic_i, compare_i, n1);
+    const box2 = @box(arithmetic_i, compare_i, n2);
 
     @expect(n1 + n2 == n2);
     @expect(box1 + box2 == box2);

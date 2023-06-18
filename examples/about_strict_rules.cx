@@ -1,0 +1,14 @@
+@use_feature strict_rules;
+// * every memory location
+//   must be explicitly uninitialized via `@undef`
+//
+// * unused function calls must be discarded
+//
+// * implicit int casts are no longer allowed
+//
+// * immutated variables must be marked as `const`
+//   (except for parameters);
+//   immutated pointers must be marked as `const`
+//
+// * all declared structs must be marked as
+//   `@opt` or `@reprc`

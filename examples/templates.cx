@@ -1,48 +1,25 @@
-// makes the use of `@undef` mandatory
-// for leaving certain values un initialized.
-// `@undef` can be used also with implicit undef
-@use_feature explicit_undef;
-@import mem;
+@use_feature strict_rules;
 
-// or maybe make templates a use_feature with lexer hack for `<`?
-typedef![t] struct {
-    t*     buffer;
-    size_t capacity;
-    size_t length;
+// all template parameters must be
+// the first params in the function declarations;
+// so basically you can't declare it in this way
+// `foo(int a, int b, typedef bar_t)`;
+//
+// this is the order in which things are evaluated
+// in the declaration of a templated function:
+// * all template parameters (such as `sum_t`)
+// * the return type
+// * all remaining parameters
+sum_t add(typedef sum_t, sum_t a, sum_t b) {
+    return a + b;
+}
 
-    // please find a more readable way
-    // to express `this_t` and `this`
-    @this_t from_len(size_t length) static {
-        const capacity = length * 2;
-
-        return (@this_t) {
-            .buffer   = mem.alloc_array![t](capacity),
-            .capacity = capacity,
-            .length   = length,
-        };
-    }
-
-    t* nth(size_t index) {
-        return &.buffer[index];
-    }
-
-    size_t len() const { return .length; }
-} vec_t;
-
-// output:
-// [templates.cx:47:9] @dbg(n) -> 0
-// [templates.cx:47:9] @dbg(n) -> 2
-// [templates.cx:47:9] @dbg(n) -> 3
-void main() {
-    // todo: explain how `from_len`, `nth`, 'len'
-    //       are used to:
-    //       * build the item from initializer list
-    //       * overload operator `[]`
-    //       * iter the item in foreach
-
-    vec_t![int32_t] numbers = { 1, 2, 3 };
-    numbers[0] = numbers[1] - 2;
-
-    for (int32_t n : numbers)
-        @dbg(n);
+@test "templated function" {
+    // the template parameter also
+    // type inferred the arguments,
+    // in fact `1` and `2` are directly
+    // evaluated as `int8_t`,
+    // no conversion is involved in here
+    // (since `@use_feature strict_rules`)
+    int8_t x = add(int8_t, 1, 2);
 }
