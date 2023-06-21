@@ -30,8 +30,8 @@ but maybe i can write a minimal c99 compiler and extend it(?) i'll try my best.
 int main() { return add(1, 2); }
 int add(int a, int b) { return a + b; }
 ```
-* kind operator overloading
-* generics
+* a kind operator overloading
+* templates
 * foreach (with a lot of extensions, for example `for @zip(auto e1 : iterable1, auto e2 : iterable2) {}` or `for @idx(auto i, auto e : iterable) {}`)
 * auto will be used for type inference instead
 * const doesn't need the type specifier (type inference)

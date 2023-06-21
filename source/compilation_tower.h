@@ -95,6 +95,57 @@ typedef struct {
 
 void drop_tokens(tokens_t* t);
 
+// index to compilation_tower_t.dnodes
+typedef uint32_t dnode_t;
+
+typedef uint8_t  dnode_kind_t;
+// index to compilation_tower_t.dnodes.{functions | typedefs | ...}
+typedef uint32_t dnode_value_t;
+
+// dnode kinds
+enum {
+    // declarations
+    DNK_FUNCTION, DNK_TYPEDEF,
+    // a simple id
+    DNK_ID,
+    // builtin types
+    DNK_VOID, DNK_INT,
+}
+
+typedef struct {
+    dnode_t*        return_types; // jointly allocated
+    dnode_t**       params_types; // jointly allocated
+    // index to compilation_tower_t.tokens.ids
+    token_value_t** params_ids;   // jointly allocated
+    uint8_t*        params_count; // jointly allocated
+
+    uint32_t length;
+    uint32_t capacity;
+} dfunctions_t;
+
+typedef struct {
+    dnode_t* types;
+
+    uint32_t length;
+    uint32_t capacity;
+} dtypedefs_t;
+
+// this item holds
+// all declaration nodes (d-nodes)
+// in the whole source file
+typedef struct {
+    // index to compilation_tower_t.tokens.ids
+    token_value_t* ids;    // jointly allocated
+    dnode_kind_t*  kinds;  // jointly allocated
+    dnode_value_t* values; // jointly allocated
+
+    uint32_t length;
+    uint32_t capacity;
+
+    dfunctions_t functions;
+    dtypedefs_t typedefs;
+} dnodes_t;
+
 typedef struct {
     // an arena allocator for whatever needs to be temporary allocated
     storage_t temp;
@@ -104,6 +155,7 @@ typedef struct {
     size_t source_size;
 
     tokens_t tokens;
+    dnodes_t dnodes;
 } compilation_tower_t;
 
 compilation_tower_t create_compilation_tower(char const* filepath);

@@ -12,3 +12,5 @@
 //
 // * all declared structs must be marked as
 //   `@opt` or `@reprc`
+//
+// * conditions must be of type `_Bool`

@@ -46,6 +46,12 @@ void compilation_tower_tokenizer(compilation_tower_t* c) {
     drop_tokenizer(&tokenizer);
 }
 
+dnodes_t create_dnodes(size_t initial_capacity) {
+    return (dnodes_t) {
+        
+    };
+}
+
 // i intialize the declarations buffer with
 // a precise number, when i go out space
 // i resize the buffer;
@@ -54,15 +60,12 @@ void compilation_tower_tokenizer(compilation_tower_t* c) {
 #define INITIAL_DECLNS_ALLOCATION_COUNT 1000
 
 void compilation_tower_dparser(compilation_tower_t* c) {
-    (void)c;
-    /*
     c->declns = create_declns(INITIAL_DECLNS_ALLOCATION_COUNT);
 
     tokenizer_t tokenizer = create_tokenizer(c);
     tokenizer_tokenize(&tokenizer);
 
     drop_tokenizer(&tokenizer);
-    */
 }
 
 char const* compilation_tower_preprocess_file(compilation_tower_t* c) {
