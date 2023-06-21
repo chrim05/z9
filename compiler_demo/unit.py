@@ -6,7 +6,7 @@ class TranslationUnit:
     from tempfile import NamedTemporaryFile
 
     preprocessed_filepath: str = NamedTemporaryFile().name
-    x = run(f'cpp.exe {filepath} {preprocessed_filepath}')
+    x = run(f'cpp.exe -std=c99 {filepath} {preprocessed_filepath}')
 
     self.filepath: str = filepath
     self.source: str = open(preprocessed_filepath, 'r').read()
@@ -55,9 +55,6 @@ class TranslationUnit:
     d = DParser(self)
 
     while d.has_token():
-      print(f'BEFORE: cur -> {d.cur}')
       self.root.nodes.append(
         d.external_declaration()
       )
-      print(f'AFTER: cur -> {d.cur}')
-      input()

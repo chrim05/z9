@@ -11,6 +11,9 @@ class Node:
   def __init__(self, loc: Loc) -> None:
     self.loc: Loc = loc
 
+  def as_serializable(self) -> object:
+    raise NotImplementedError(type(self).__name__)
+
 class Token(Node):
   def __init__(
     self,
@@ -23,34 +26,34 @@ class Token(Node):
     self.kind: str = kind
     self.value: object = value
 
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__,
+      'kind': self.kind,
+      'value': self.value
+    }
+
   def __repr__(self) -> str:
     return f'{self.loc}: Token({repr(self.kind)}, {repr(self.value)})'
 
-class RootNode(Node):
-  def __init__(self, nodes: list[Node], loc: Loc) -> None:
-    super().__init__(loc)
-
-    self.nodes: list[Node] = nodes
-
 class PoisonedNode(Node):
-  pass
-
-class ZeroOrOneNode(Node):
-  def __init__(self, node: Node | None) -> None:
-    if node is not None:
-      super().__init__(node.loc)
-    
-    self.node: Node | None = node
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__
+    }
 
 class CompoundStatementNode(Node):
   def __init__(self, loc: Loc) -> None:
     super().__init__(loc)
     self.tokens: list[Token] = []
 
-class OneOrMoreNode(Node):
-  def __init__(self, loc: Loc) -> None:
-    super().__init__(loc)
-    self.list: list[Node] = []
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__,
+      'tokens': [
+        t.as_serializable() for t in self.tokens
+      ]
+    }
 
 class SyntaxNode(Node):
   '''
@@ -58,8 +61,50 @@ class SyntaxNode(Node):
   such as "FunctionDefinition" or a "Declaration"
   '''
 
-  def __init__(self, syntax_name: str, loc: Loc) -> None:
+  def __init__(
+    self,
+    loc: Loc,
+    syntax_name: str,
+    data: dict[str, Node | None],
+  ) -> None:
     super().__init__(loc)
     
     self.syntax_name: str = syntax_name
-    self.pattern: dict[str, Node] = {}
+    self.data: dict[str, Node | None] = data
+
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__,
+      'syntax_name': self.syntax_name,
+      'data': {
+        k: v.as_serializable() if v else None
+          for k, v in self.data.items()
+      }
+    }
+
+class MultipleNode(Node):
+  def __init__(self, loc: Loc) -> None:
+    super().__init__(loc)
+
+    self.nodes: list[Node] = []
+
+  '''
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__,
+      'nodes': [
+        n.as_serializable() for n in self.nodes
+      ]
+    }
+  '''
+
+  def as_serializable(self) -> object:
+    return [
+      n.as_serializable() for n in self.nodes
+    ]
+
+class RootNode(MultipleNode):
+  def __init__(self, nodes: list[Node], loc: Loc) -> None:
+    super().__init__(loc)
+
+    self.nodes: list[Node] = nodes

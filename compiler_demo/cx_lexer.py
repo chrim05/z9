@@ -12,21 +12,28 @@ KEYWORDS: list[str] = [
   'int', 'long', 'register', 'return',
   'short', 'signed', 'sizeof', 'static',
   'struct', 'switch', 'typedef', 'union',
-  'unsigned', 'void', 'volatile', 'while',
-  '_Alignas', '_Alignof', '_Atomic', '_Bool',
-  '_Complex', '_Generic', '_Imaginary', '_Noreturn',
-  '_Static_assert', '_Thread_local'
+  'unsigned', 'void', 'volatile',
+  'while', '_Alignas', '_Alignof',
+  '_Atomic', '_Bool', '_Complex',
+  '_Generic', '_Imaginary', '_Noreturn',
+  '_Static_assert', '_Thread_local',
+  'inline', 'restrict',
 ]
 
 PUNCTUATION: list[str] = [
   '=', ',', ';', ':', '(', ')', '{', '}', '[', ']',
-  '<', '>', '.', '?', '!'
+  '<', '>', '.', '?', '!', '+', '-', '*', '/', '%',
+  '&', '|', '^', '~',
 ]
 
 DOUBLE_PUNCTUATION: list[str] = [
-  '==', '!=', '>=', '<=', '&&', '||', '::', '**',
-  '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
-  '<<=', '>>='
+  '==', '!=', '>=', '<=', '&&', '||',
+  '+=', '-=', '*=', '/=', '%=', '&=',
+  '|=', '^=', '<<', '>>',
+]
+
+TRIPLE_PUNCTUATION: list[str] = [
+  '...', '<<=', '>>=',
 ]
 
 class Lexer:
@@ -117,6 +124,13 @@ class Lexer:
     return Token('id', value, loc)
 
   def collect_punctuation_token(self, loc: Loc) -> Token:
+    if self.has_char(offset=2):
+      triple: str = self.cur + self.char(1) + self.char(2)
+
+      if triple in TRIPLE_PUNCTUATION:
+        self.skip(count=3)
+        return Token(triple, triple, loc)
+
     if self.has_char(offset=1):
       double: str = self.cur + self.char(offset=1)
 
