@@ -345,6 +345,18 @@ class DParser:
 
   @recoverable
   def type_specifier(self) -> Node | None:
+    if self.cur.kind == 'meta_id' and self.cur.value == 'i':
+      tag = self.expect_token('meta_id')
+      self.expect_token('(')
+      size = self.expect_token('num').value
+      self.expect_token(')')
+
+      return TypeSizedIntNode(
+        # just for error recovery
+        size if isinstance(size, int) else 32,
+        tag.loc
+      )
+
     builtin = self.token(
       'void', 'char', 'short',
       'int', 'long', 'float',

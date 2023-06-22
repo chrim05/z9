@@ -7,7 +7,12 @@ class TranslationUnit:
     from tempfile import NamedTemporaryFile
 
     preprocessed_filepath: str = NamedTemporaryFile().name
-    x = run(f'cpp.exe -std=c99 {filepath} {preprocessed_filepath}')
+    self.clang_cpp = run(
+      f'clang-cpp.exe -std=c99 -nostdinc -Iinclude {filepath} -o {preprocessed_filepath}'
+    ).returncode
+
+    if self.clang_cpp != 0:
+      return
 
     self.filepath: str = filepath
     self.source: str = open(preprocessed_filepath, 'r').read()
@@ -17,8 +22,11 @@ class TranslationUnit:
 
   def print_diagnostic(self) -> None:
     from rich.console import Console
-    console = Console()
 
+    if self.clang_cpp != 0:
+      return
+
+    console = Console()
     fix_message = lambda m: m.replace('[', '\[')
 
     for message, loc in self.errors:
@@ -37,6 +45,9 @@ class TranslationUnit:
     from cx_lexer import Lexer
     from data import Token
 
+    if self.clang_cpp != 0:
+      return
+
     self.tokens: list[Token] = []
     l = Lexer(self)
 
@@ -52,6 +63,9 @@ class TranslationUnit:
     from cx_dparser import DParser
     from data import MultipleNode
 
+    if self.clang_cpp != 0:
+      return
+
     if len(self.tokens) == 0:
       self.root: MultipleNode = MultipleNode(Loc(self.filepath, 1, 1))
       return
@@ -61,3 +75,9 @@ class TranslationUnit:
     self.root = DParser(self).struct_or_union_declaration_list(
       expect_braces=False, allow_method_mods=False
     )
+
+  def dump_root(self) -> None:
+    if self.clang_cpp != 0:
+      return
+
+    print(dumps(self.root.as_serializable(), indent=2))

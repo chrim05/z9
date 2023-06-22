@@ -1,13 +1,11 @@
 from unit import TranslationUnit
 from json import dumps
+from sys  import argv
 
-t = TranslationUnit('simple.cx')
+f = 'simple.cx' if len(argv) == 1 else argv[1]
+t = TranslationUnit(f)
 t.lex()
 t.dparse()
 
-print('\n--------\n')
-
-#print(*t.tokens, sep='\n', end='\n\n')
-print(dumps(t.root.as_serializable(), indent=4))
-
+t.dump_root()
 t.print_diagnostic()
