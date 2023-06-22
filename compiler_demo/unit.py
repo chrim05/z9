@@ -1,4 +1,5 @@
 from data import *
+from json import dumps
 
 class TranslationUnit:
   def __init__(self, filepath: str) -> None:
@@ -49,15 +50,14 @@ class TranslationUnit:
 
   def dparse(self) -> None:
     from cx_dparser import DParser
-    from data import RootNode, Node
+    from data import MultipleNode
 
-    self.root: RootNode = RootNode([], self.tokens[0].loc)
-    d = DParser(self)
+    if len(self.tokens) == 0:
+      self.root: MultipleNode = MultipleNode(Loc(self.filepath, 1, 1))
+      return
 
-    while d.has_token():
-      edecl = d.external_declaration()
-
-      if isinstance(edecl, PlaceholderNode):
-        continue
-
-      self.root.nodes.append(edecl)
+    # the top level scope behaves the same as a
+    # struct's or union's body
+    self.root = DParser(self).struct_or_union_declaration_list(
+      expect_braces=False, allow_method_mods=False
+    )

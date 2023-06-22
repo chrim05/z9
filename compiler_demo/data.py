@@ -14,6 +14,13 @@ class Node:
   def as_serializable(self) -> object:
     raise NotImplementedError(type(self).__name__)
 
+def optional_as_serializable(optional: Node | None) -> object:
+  if optional is None:
+    return None
+
+  return optional.as_serializable()
+
+
 class Token(Node):
   def __init__(
     self,
@@ -103,12 +110,22 @@ class MultipleNode(Node):
       n.as_serializable() for n in self.nodes
     ]
 
-class RootNode(MultipleNode):
-  def __init__(self, nodes: list[Node], loc: Loc) -> None:
-    super().__init__(loc)
-
-    self.nodes: list[Node] = nodes
-
 class PlaceholderNode(Node):
   def __init__(self) -> None:
     pass
+
+class UseFeatureDirective(Node):
+  def __init__(self, loc: Loc) -> None:
+    super().__init__(loc)
+
+    self.features: list[Token] = []
+    self.body: MultipleNode | None = None
+
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__,
+      'features': [
+        f.as_serializable() for f in self.features
+      ],
+      'body': optional_as_serializable(self.body)
+    }

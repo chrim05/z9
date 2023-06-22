@@ -14,7 +14,21 @@ TOFIX:
     instead of checking ones
 '''
 
+META_DIRECTIVES = [
+  'use_feature',
+]
+
 def recoverable(func):
+  '''
+  this is a decorator for parsing methods of DParser;
+  it becomes useful to easily restore/recover
+  previous branch index when the parsing function
+  fails, basically when returns `None`, then we know
+  that it may moved advanced the index to next tokens,
+  but if it failed, we need to come back to the original tokens index
+  that there was before calling the parsing function
+  '''
+
   def wrapper(*args, **kwargs):
     this = args[0]
 
@@ -102,7 +116,7 @@ class DParser:
   def collect_compound_statement(self) -> CompoundNode:
     if self.cur.kind != '{':
       self.unit.report(
-        'function definition wants a compound statement (its body)',
+        'after declarator, function definition wants a compound statement (its body)',
         self.cur.loc
       )
       return CompoundNode(self.cur.loc)
@@ -134,7 +148,12 @@ class DParser:
     print(f'LOG(cur: {self.cur}): {message}')
 
   @recoverable
-  def function_definition(self, dspecs: Node, declarator: Node) -> Node | None:
+  def function_definition(
+    self,
+    dspecs: Node,
+    declarator: Node,
+    allow_method_mods: bool
+  ) -> Node | None:
     '''
     TODO:
       * [declaration-list]
@@ -147,8 +166,12 @@ class DParser:
 
     if \
       not isinstance(direct_decl, SyntaxNode) or \
-      direct_decl.syntax_name != 'ParameterListDeclarator':
-        return None
+        direct_decl.syntax_name != 'ParameterListDeclarator':
+      return None
+
+    mmod: Token | None = None
+    if allow_method_mods:
+      mmod = self.token('static', 'const')
 
     body: Node | None
     if self.token(';') is not None:
@@ -156,11 +179,16 @@ class DParser:
     else:
       body = self.collect_compound_statement()
 
-    return SyntaxNode(declarator.loc, 'FunctionDefinition', {
+    fndef = SyntaxNode(declarator.loc, 'FunctionDefinition', {
       'declaration_specifiers': dspecs,
       'declarator': declarator,
       'body': body,
     })
+
+    if allow_method_mods:
+      fndef.data['method_modifier'] = mmod
+
+    return fndef
 
   # until terminator `,` `;` and they are not included
   # in the collection, and after calling this
@@ -262,18 +290,58 @@ class DParser:
     or `(` for functions' params list
     '''
 
-    if self.cur.kind != 'id':
+    if self.cur.kind not in ['id', 'meta_id']:
       return None
 
     if not self.has_token(offset=1):
       return None
 
-    if self.tok(offset=1).kind in [
+    # meta_id are always types in these cases,
+    # because a declarator name cannot be a meta_id
+    if self.cur.kind == 'id' and self.tok(offset=1).kind in [
       ',', ';', '=', '(', ')'
     ]:
       return None
 
-    return self.identifier()
+    return self.identifier_or_meta_id()
+
+  def identifier_or_meta_id(self) -> Token | None:
+    return self.token('id', 'meta_id')
+
+  @recoverable
+  def struct_or_union_declaration_list(
+    self,
+    expect_braces: bool,
+    allow_method_mods: bool
+  ) -> MultipleNode | None:
+    if expect_braces and (opener := self.token('{')) is None:
+      return None
+    else:
+      # this is just for the location,
+      # we actually don't need the cur token
+      opener = self.cur
+
+    body = MultipleNode(opener.loc)
+
+    while True:
+      if not self.has_token():
+        if expect_braces:
+          self.unit.report('body not closed', opener.loc)
+
+        break
+
+      if expect_braces and self.token('}') is not None:
+        break
+
+      edecl = self.external_declaration(allow_method_mods)
+
+      # we may parse a standalone semicolon
+      if isinstance(edecl, PlaceholderNode):
+        continue
+
+      body.nodes.append(edecl)
+
+    return body
 
   @recoverable
   def type_specifier(self) -> Node | None:
@@ -294,6 +362,17 @@ class DParser:
       * struct-or-union-specifier
       * enum-specifier
     '''
+
+    if (spec_kw := self.token('struct', 'union')) is not None:
+      name = self.identifier()
+      body = self.struct_or_union_declaration_list(
+        expect_braces=True, allow_method_mods=True
+      )
+
+      return SyntaxNode(spec_kw.loc, f'{spec_kw.kind.capitalize()}Specifier', {
+        'name': name,
+        'body': body,
+      })
 
     if (tydef_name := self.typedef_name()) is not None:
       return tydef_name
@@ -328,6 +407,7 @@ class DParser:
     '''
     TODO:
       * alignment-specifier
+      ? __attribute__
     '''
 
     return None
@@ -441,11 +521,46 @@ class DParser:
       'direct_declarator': direct_declarator
     })
 
-  def external_declaration(self) -> Node:
+  def parse_use_feature(self, loc: Loc) -> UseFeatureDirective:
+    d = UseFeatureDirective(loc)
+    d.features.append(self.expect_token('id'))
+
+    while self.has_token() and self.token(',') is not None:
+      d.features.append(
+        self.expect_token('id')
+      )
+
+    if self.cur.kind == '{':
+      d.body = self.struct_or_union_declaration_list(
+        expect_braces=True, allow_method_mods=False
+      )
+    else:
+      self.expect_token(';')
+
+    return d
+
+  def parse_meta_directive(self) -> Node:
+    mdir: Token = self.token('meta_id') # type: ignore[assignment]
+
+    match mdir.value:
+      case 'use_feature':
+        return self.parse_use_feature(mdir.loc)
+
+      case _:
+        return PoisonedNode(mdir.loc) # unreachable
+
+  def external_declaration(self, allow_method_mods: bool) -> Node:
     '''
     TODO:
       * _Static_assert
     '''
+
+    # parsing meta directives, such as `use_feature`
+    if \
+      not allow_method_mods and \
+        self.cur.kind == 'meta_id' and \
+          self.cur.value in META_DIRECTIVES:
+      return self.parse_meta_directive()
 
     if self.token(';') is not None:
       return PlaceholderNode()
@@ -454,6 +569,12 @@ class DParser:
       self.declaration_specifiers(),
       'top level members must start with a declaration specifier (such as a type)'
     )
+
+    # to avoid getting stuck on a token
+    # in loop
+    if dspecs is None or isinstance(dspecs, PoisonedNode):
+      self.skip()
+      return PlaceholderNode()
 
     if self.token(';') is not None:
       return SyntaxNode(
@@ -467,7 +588,13 @@ class DParser:
       'top level members must have a declarator (such as a name)'
     )
 
-    if (node := self.function_definition(dspecs, declarator)) is None:
+    # to avoid getting stuck on a token
+    # in loop
+    if declarator is None or isinstance(declarator, PoisonedNode):
+      self.skip()
+      return PlaceholderNode()
+
+    if (node := self.function_definition(dspecs, declarator, allow_method_mods)) is None:
       node = cast(SyntaxNode, self.expect_node(
         self.declaration(dspecs, declarator),
         'top level members must be either function definition or declaration'

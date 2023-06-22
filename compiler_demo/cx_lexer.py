@@ -192,6 +192,15 @@ class Lexer:
       loc
     )
 
+  def collect_meta_id(self, loc: Loc) -> Token:
+    # skipping `@`
+    self.skip()
+    
+    value: Token = self.collect_word_token(loc)
+    value.kind = 'meta_id'
+
+    return value
+
   def next_token(self) -> Token | None:
     self.eat_white()
 
@@ -204,6 +213,8 @@ class Lexer:
       token = self.collect_word_token(self.loc)
     elif self.cur in ["'", '"']:
       token = self.collect_stringed_token(self.loc)
+    elif self.cur == '@':
+      token = self.collect_meta_id(self.loc)
     else:
       token = self.collect_punctuation_token(self.loc)
 
