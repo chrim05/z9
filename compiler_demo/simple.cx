@@ -1,3 +1,4 @@
+/*
 #include <stdint.h>
 
 const uint* const main(int, short);
@@ -32,3 +33,7 @@ typedef struct Some {
 
 @use_feature strict_rules, some_other;
 int x;
+*/
+
+result_t(void, int32_t) main() {
+}

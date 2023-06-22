@@ -141,3 +141,12 @@ class TypeSizedIntNode(Node):
       '@class': type(self).__name__,
       'size': self.size
     }
+
+class TypeTemplatedNode(Node):
+  def __init__(self, loc: Loc) -> None:
+    super().__init__(loc)
+
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__,
+    }

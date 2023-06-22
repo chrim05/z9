@@ -2,21 +2,21 @@ from data import *
 from typing import Callable, cast
 from json import dumps
 
-'''
-TOFIX:
-  * currently i check for a lot of stuff
-    and return None if they are None too,
-    but this makes no sense when the called
-    function moved throught tokens, an idiomatic
-    solution should be to push and pop indices,
-    but this makes the code bloated and a lot of checks
-    are not even necessary, i can just write expecting functions
-    instead of checking ones
-'''
-
 META_DIRECTIVES = [
   'use_feature',
 ]
+
+CLASS_SPECS = (
+  'typedef', 'extern', 'static',
+  '_Thread_local', 'auto', 'register'
+)
+
+FUNCTION_SPECS = ('inline', '_Noreturn')
+
+TYPE_QUALS = (
+  'const', 'restrict',
+  'volatile', '_Atomic'
+)
 
 def recoverable(func):
   '''
@@ -48,12 +48,19 @@ class DParser:
   '''
   Lazy parser for declarations, from:
   https://github.com/katef/kgt/blob/main/examples/c99-grammar.iso-ebnf
+
+  i use multiple parsing hacks for recognizing identifiers
+  as typedef-ed names, and this allows the compiler to avoid
+  forward declarations for members
   '''
 
   def __init__(self, unit) -> None:
     from unit import TranslationUnit
     self.unit: TranslationUnit = unit
     self.branches: list[int] = [0]
+    # i just assign it with a placeholder, because it will be always
+    # overwritten
+    self.current_dspecs: MultipleNode = MultipleNode(self.cur.loc)
 
   @property
   def index(self) -> int:
@@ -266,19 +273,49 @@ class DParser:
 
     return decls
 
-  def collect_sequence(self, fn: Callable[[], Node | None]) -> MultipleNode:
-    mn = MultipleNode(self.cur.loc)
-
+  def collect_sequence_into(
+    self,
+    fn: Callable[[], Node | None],
+    mn: MultipleNode
+  ) -> None:
     while (dspec := fn()) is not None:
       mn.nodes.append(dspec)
+
+  def collect_sequence(self, fn: Callable[[], Node | None]) -> MultipleNode:
+    mn = MultipleNode(self.cur.loc)
+    self.collect_sequence_into(fn, mn)
 
     return mn
 
   def storage_class_specifier(self) -> Token | None:
-    return self.token(
-      'typedef', 'extern', 'static',
-      '_Thread_local', 'auto', 'register'
-    )
+    return self.token(*CLASS_SPECS)
+
+  def id_should_be_type(self) -> bool:
+    '''
+    we can also recognize an identifier as a typedef-ed name
+    when the current declaration specifiers list follow these rules:
+    * the dspecs is empty (then a type is needed)
+    * the dspecs only contain qualifiers
+    '''
+
+    # is the dspecs list empty?
+    if len(self.current_dspecs.nodes) == 0:
+      return True
+
+    # otherwise let's check if the
+    # dspecs contains an effective type
+    # or just qualifiers, such as `volatile`, `const`, 'static' etc..
+    name: str = cast(str, self.cur.value)
+    QUALS = CLASS_SPECS + FUNCTION_SPECS + TYPE_QUALS
+
+    for t in self.current_dspecs.nodes:
+      if not isinstance(t, Token):
+        return False
+
+      if t.kind not in QUALS:
+        return False
+
+    return True
 
   def typedef_name(self) -> Token | None:
     '''
@@ -301,7 +338,8 @@ class DParser:
     if self.cur.kind == 'id' and self.tok(offset=1).kind in [
       ',', ';', '=', '(', ')'
     ]:
-      return None
+      if not self.id_should_be_type():
+        return None
 
     return self.identifier_or_meta_id()
 
@@ -387,20 +425,30 @@ class DParser:
       })
 
     if (tydef_name := self.typedef_name()) is not None:
+      if (tmpl := self.template_arguments(tydef_name)) is not None:
+        return tmpl
+
       return tydef_name
 
     return None
 
+  def template_arguments(self, typedef_name: Token) -> TypeTemplatedNode | None:
+    if self.token('(') is None:
+      return None
+
+    # TODO: collect template argument's as tokens
+    #       because they could be ambiguous,
+    #       compiler can't distinguish `some_t` from `some`
+    #       since templates can accept expressions as well
+
+    self.expect_token(')')
+    raise NotImplementedError('TODO')
+
   def function_specifier(self) -> Token | None:
-    return self.token(
-      'inline', '_Noreturn'
-    )
+    return self.token(*FUNCTION_SPECS)
 
   def type_qualifier(self) -> Token | None:
-    return self.token(
-      'const', 'restrict',
-      'volatile', '_Atomic'
-    )
+    return self.token(*TYPE_QUALS)
 
   @recoverable
   def declaration_specifier(self) -> Node | None:
@@ -426,7 +474,16 @@ class DParser:
 
   @recoverable
   def declaration_specifiers(self) -> MultipleNode | None:
-    dspecs = self.collect_sequence(self.declaration_specifier)
+    # saving the old one shouldn't be
+    # necessary
+    old, self.current_dspecs = self.current_dspecs, MultipleNode(self.cur.loc)
+
+    self.collect_sequence_into(
+      self.declaration_specifier,
+      self.current_dspecs
+    )
+
+    dspecs, self.current_dspecs = self.current_dspecs, old
 
     if len(dspecs.nodes) == 0:
       return None
