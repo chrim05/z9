@@ -87,11 +87,6 @@ class DParser:
   def merge_branch(self) -> None:
     self.index = self.branches.pop()
 
-  def todo(self, message: str = '') -> Node | None:
-    # self.unit.warn(f'TODO: {message}', self.cur.loc)
-    # return None
-    raise NotImplementedError(message)
-
   def expect_token(self, kind: str) -> Token:
     token: Token | None = self.token(kind)
 
@@ -104,9 +99,16 @@ class DParser:
 
     return token
 
-  def collect_compound_statement(self) -> CompoundStatementNode:
+  def collect_compound_statement(self) -> CompoundNode:
+    if self.cur.kind != '{':
+      self.unit.report(
+        'function definition wants a compound statement (its body)',
+        self.cur.loc
+      )
+      return CompoundNode(self.cur.loc)
+
     opener: Token = self.expect_token('{')
-    compound = CompoundStatementNode(opener.loc)
+    compound = CompoundNode(opener.loc)
     nest_level: int = 0
 
     while True:
@@ -132,16 +134,109 @@ class DParser:
     print(f'LOG(cur: {self.cur}): {message}')
 
   @recoverable
-  def function_definition(self, loc: Loc) -> SyntaxNode | None:
-    return SyntaxNode(loc, 'FunctionDefinition', {
-      'compound_statement': self.expect_node(
-        self.collect_compound_statement(),
-        'function definition wants a compund statement (its body)'
-      )
+  def function_definition(self, dspecs: Node, declarator: Node) -> Node | None:
+    '''
+    TODO:
+      * [declaration-list]
+    '''
+
+    if not isinstance(declarator, SyntaxNode):
+      return None
+
+    direct_decl = declarator.data['direct_declarator']
+
+    if \
+      not isinstance(direct_decl, SyntaxNode) or \
+      direct_decl.syntax_name != 'ParameterListDeclarator':
+        return None
+
+    body: Node | None
+    if self.token(';') is not None:
+      body = None
+    else:
+      body = self.collect_compound_statement()
+
+    return SyntaxNode(declarator.loc, 'FunctionDefinition', {
+      'declaration_specifiers': dspecs,
+      'declarator': declarator,
+      'body': body,
     })
 
-  def declaration(self, loc: Loc) -> SyntaxNode | None:
-    return self.todo()
+  # until terminator `,` `;` and they are not included
+  # in the collection, and after calling this
+  # function, `self.cur` will be the terminator
+  def collect_initializer(self, loc: Loc) -> CompoundNode:
+    compound = CompoundNode(loc)
+    nest_levels: dict[str, int] = {
+      '(': 0, '[': 0, '{': 0
+    }
+
+    flip = lambda c: {
+      ')': '(', ']': '[', '}': '{'
+    }[c]
+
+    while True:
+      if not self.has_token():
+        self.unit.report('initializer not closed, did you forget a ";"?', loc)
+        break
+
+      if self.cur.kind in [',', ';']:
+        break
+
+      if self.cur.kind in ['(', '[', '{']:
+        nest_levels[self.cur.kind] += 1
+      elif self.cur.kind in [')', ']', '}']:
+        flipped = flip(self.cur.kind)
+
+        if nest_levels[flipped] > 0:
+          nest_levels[flipped] -= 1
+
+      compound.tokens.append(self.cur)
+      self.skip()
+
+    return compound
+
+  def declaration(self, dspecs: Node, declarator: Node) -> Node | None:
+    first: Node | None = None
+
+    if (eq := self.token('=')) is not None:
+      first = self.collect_initializer(eq.loc)
+
+    first_decl = SyntaxNode(declarator.loc, 'Declaration', {
+      'declaration_specifiers': dspecs,
+      'declarator': declarator,
+      'initializer': first,
+    })
+
+    if self.token(';') is not None:
+      return first_decl
+
+    decls = MultipleNode(dspecs.loc)
+    decls.nodes.append(first_decl)
+
+    while self.token(',') is not None:
+      declarator = self.expect_node(
+        self.declarator(),
+        'in multiple declaration, a declarator (such as a name) is expected after ","'
+      )
+      initializer: Node | None = None
+
+      if (eq := self.token('=')) is not None:
+        initializer = self.collect_initializer(eq.loc)
+
+      new_decl = SyntaxNode(declarator.loc, 'Declaration', {
+        'declaration_specifiers': dspecs,
+        'declarator': declarator,
+        'initializer': initializer,
+      })
+
+      decls.nodes.append(new_decl)
+
+    # when not new decls are being added
+    if len(decls.nodes) == 1:
+      self.unit.report('did you mean ";" or ","?', self.cur.loc)
+
+    return decls
 
   def collect_sequence(self, fn: Callable[[], Node | None]) -> MultipleNode:
     mn = MultipleNode(self.cur.loc)
@@ -246,14 +341,8 @@ class DParser:
 
     return dspecs
 
-  @recoverable
-  def type_qualifier_list(self) -> Node | None:
-    ty_quals = self.collect_sequence(self.type_qualifier)
-
-    if len(ty_quals.nodes) == 0:
-      return None
-
-    return ty_quals
+  def type_qualifier_list(self) -> Node:
+    return self.collect_sequence(self.type_qualifier)
 
   @recoverable
   def pointer(self) -> Node | None:
@@ -353,24 +442,37 @@ class DParser:
     })
 
   def external_declaration(self) -> Node:
+    '''
+    TODO:
+      * _Static_assert
+    '''
+
+    if self.token(';') is not None:
+      return PlaceholderNode()
+
     dspecs = self.expect_node(
       self.declaration_specifiers(),
       'top level members must start with a declaration specifier (such as a type)'
     )
+
+    if self.token(';') is not None:
+      return SyntaxNode(
+        dspecs.loc,
+        'EmptyDeclaration',
+        {'declaration_specifiers': dspecs}
+      )
 
     declarator = self.expect_node(
       self.declarator(),
       'top level members must have a declarator (such as a name)'
     )
 
-    if (node := self.function_definition(declarator.loc)) is None:
+    if (node := self.function_definition(dspecs, declarator)) is None:
       node = cast(SyntaxNode, self.expect_node(
-        self.declaration(declarator.loc),
+        self.declaration(dspecs, declarator),
         'top level members must be either function definition or declaration'
       ))
 
-    node.data['declaration_specifiers'] = dspecs
-    node.data['declarator'] = declarator
     return node
 
   def expect_node(

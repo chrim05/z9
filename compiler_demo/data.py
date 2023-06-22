@@ -42,7 +42,7 @@ class PoisonedNode(Node):
       '@class': type(self).__name__
     }
 
-class CompoundStatementNode(Node):
+class CompoundNode(Node):
   def __init__(self, loc: Loc) -> None:
     super().__init__(loc)
     self.tokens: list[Token] = []
@@ -108,3 +108,7 @@ class RootNode(MultipleNode):
     super().__init__(loc)
 
     self.nodes: list[Node] = nodes
+
+class PlaceholderNode(Node):
+  def __init__(self) -> None:
+    pass

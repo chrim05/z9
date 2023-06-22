@@ -55,6 +55,9 @@ class TranslationUnit:
     d = DParser(self)
 
     while d.has_token():
-      self.root.nodes.append(
-        d.external_declaration()
-      )
+      edecl = d.external_declaration()
+
+      if isinstance(edecl, PlaceholderNode):
+        continue
+
+      self.root.nodes.append(edecl)
