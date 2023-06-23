@@ -15,7 +15,8 @@ FUNCTION_SPECS = ('inline', '_Noreturn')
 
 TYPE_QUALS = (
   'const', 'restrict',
-  'volatile', '_Atomic'
+  'volatile', '_Atomic',
+  '_Cdecl'
 )
 
 def recoverable(func):
@@ -531,7 +532,7 @@ class DParser:
     #       since templates can accept expressions as well
 
     self.expect_token(')')
-    raise NotImplementedError('TODO')
+    raise NotImplementedError(f'TODO: template_arguments ({self.cur})')
 
   def function_specifier(self) -> Token | None:
     return self.token(*FUNCTION_SPECS)
