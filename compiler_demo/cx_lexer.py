@@ -29,7 +29,7 @@ PUNCTUATION: list[str] = [
 DOUBLE_PUNCTUATION: list[str] = [
   '==', '!=', '>=', '<=', '&&', '||',
   '+=', '-=', '*=', '/=', '%=', '&=',
-  '|=', '^=', '<<', '>>',
+  '|=', '^=', '<<', '>>', '++', '--',
 ]
 
 TRIPLE_PUNCTUATION: list[str] = [
@@ -116,7 +116,7 @@ class Lexer:
       self.skip()
 
     if value[0].isdigit():
-      return Token('num', int(value), loc)
+      return Token('num', eval(value), loc)
 
     if value in KEYWORDS:
       return Token(value, value, loc)

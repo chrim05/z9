@@ -130,16 +130,16 @@ class UseFeatureDirective(Node):
       'body': optional_as_serializable(self.body)
     }
 
-class TypeSizedIntNode(Node):
-  def __init__(self, size: int, loc: Loc) -> None:
+class TypeBuiltinNode(Node):
+  def __init__(self, name: str, loc: Loc) -> None:
     super().__init__(loc)
 
-    self.size:int = size
+    self.name: str = name
 
   def as_serializable(self) -> object:
     return {
       '@class': type(self).__name__,
-      'size': self.size
+      'name': self.name
     }
 
 class TypeTemplatedNode(Node):

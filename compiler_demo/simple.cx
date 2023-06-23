@@ -19,21 +19,28 @@ typedef struct Some {
   int x = 0, y, *const z;
 
   void increase() {
-      ++.x;
+    ++.x;
   }
 
   void do_something() const {
-      printf("Some(x: %d)\n", .x);
+    printf("Some(x: %d)\n", .x);
   }
 
   @this_t new() static {
-      return (@this_t) { .x = 1 };
+    return (@this_t) { .x = 1 };
   }
 } some_t;
 
-@use_feature strict_rules, some_other;
+@use_feature strict_rules, some_other_feature;
 int x;
-*/
 
-result_t(void, int32_t) main() {
-}
+int (*m)(int, int) = 0;
+
+enum some_t k;
+enum { X, Y = 10 + 2 * const_call(), Z, };
+
+int x[10];
+k x[10];
+k const x[2 * 2 + const_call()];
+const k *x[2 * 2];
+*/

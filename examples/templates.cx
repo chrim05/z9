@@ -1,25 +1,9 @@
 @use_feature strict_rules;
 
-// all template parameters must be
-// the first params in the function declarations;
-// so basically you can't declare it in this way
-// `foo(int a, int b, typedef bar_t)`;
-//
-// this is the order in which things are evaluated
-// in the declaration of a templated function:
-// * all template parameters (such as `sum_t`)
-// * the return type
-// * all remaining parameters
 sum_t add(typedef sum_t, sum_t a, sum_t b) {
     return a + b;
 }
 
 @test "templated function" {
-    // the template parameter also
-    // type inferred the arguments,
-    // in fact `1` and `2` are directly
-    // evaluated as `int8_t`,
-    // no conversion is involved in here
-    // (since `@use_feature strict_rules`)
-    int8_t x = add(int8_t, 1, 2);
+    const x = add(int8_t, 1, 2);
 }

@@ -11,17 +11,17 @@
   // for windows and `short short extra large bim bum bam ...`
   // for unix for expressing the same type
 
-  typedef signed   @i(8)  int8_t;
-  typedef unsigned @i(8)  uint8_t;
+  typedef signed   @builtin_t("int8")  int8_t;
+  typedef unsigned @builtin_t("int8")  uint8_t;
 
-  typedef signed   @i(16) int16_t;
-  typedef unsigned @i(16) uint16_t;
+  typedef signed   @builtin_t("int16") int16_t;
+  typedef unsigned @builtin_t("int16") uint16_t;
 
-  typedef signed   @i(32) int32_t;
-  typedef unsigned @i(32) uint32_t;
+  typedef signed   @builtin_t("int32") int32_t;
+  typedef unsigned @builtin_t("int32") uint32_t;
 
-  typedef signed   @i(64) int64_t;
-  typedef unsigned @i(64) uint64_t;
+  typedef signed   @builtin_t("int64") int64_t;
+  typedef unsigned @builtin_t("int64") uint64_t;
 
   // please don't use these macros,
   // use `intN_t.[max | min]` instead

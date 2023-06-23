@@ -1,0 +1,45 @@
+// this is an idea about how to implement
+// a potential struct-of-arrays in cx
+//
+// the idea is to have a builtin type for that
+// because i'm not even sure it would be possible to implement
+// via metaprogramming
+//
+// but the fact is that i would like to have some way
+// to produce a dod collection without having to manually write it;
+// basically you have a normal linea container, such as `vec_t`
+// and you can produce a soa version of it without having to rewrite
+// half of the container
+
+@import vec -> {
+  vec_t
+};
+
+typedef struct { int32_t x; int64_t y; } couple_t;
+
+// we are loosing 4 bytes each element
+typedef vec_t(couple_t)       couples1_t;
+// nothing lost
+typedef @soa(vec_t, couple_t) couples2_t;
+
+@test "couples" {
+  // nothing weird happens
+  const v1 = (couples1_t) {{.x=1, .y=2}, {.x=3, .y=4}};
+
+  // joint allocations done like this
+  // `mem.bytes_alloc(t1 * len + t2 * len)`
+  // the problem is now, the realloc operation also
+  // needs to be modified, how can the compiler
+  // control so much a type? (read below for clarifications)
+  const v2 = (couples2_t) {{.x=4, .y=3}, {.x=2, .y=1}};
+}
+
+// this will be probably a bit hard to implement
+// because i don't want it to create N vec_t-s for
+// each field of the struct, but i would like
+// to join allocate a single vec_t to split among
+// all fields;
+//
+// probably, the best way to do this, is to ask
+// the user to expose, with the struct, some method
+// which will make it easier to implement @soa on

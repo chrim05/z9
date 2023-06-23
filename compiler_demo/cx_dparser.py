@@ -151,8 +151,8 @@ class DParser:
     self.token('}')
     return compound
 
-  def log(self, message: str) -> None:
-    print(f'LOG(cur: {self.cur}): {message}')
+  def log(self, obj: object) -> None:
+    print(f'LOG(cur: {self.cur}): {obj}')
 
   @recoverable
   def function_definition(
@@ -174,6 +174,15 @@ class DParser:
     if \
       not isinstance(direct_decl, SyntaxNode) or \
         direct_decl.syntax_name != 'ParameterListDeclarator':
+      return None
+
+    direct_decl = direct_decl.data['declarator']
+
+    # it may be a function pointer, this means no body is involved
+    # but it must be interpreted as a type
+    if \
+      isinstance(direct_decl, SyntaxNode) and \
+        direct_decl.data['pointer'] is not None:
       return None
 
     mmod: Token | None = None
@@ -200,7 +209,11 @@ class DParser:
   # until terminator `,` `;` and they are not included
   # in the collection, and after calling this
   # function, `self.cur` will be the terminator
-  def collect_initializer(self, loc: Loc) -> CompoundNode:
+  def collect_initializer(
+    self,
+    terminator: list[str],
+    loc: Loc
+  ) -> CompoundNode:
     compound = CompoundNode(loc)
     nest_levels: dict[str, int] = {
       '(': 0, '[': 0, '{': 0
@@ -210,12 +223,17 @@ class DParser:
       ')': '(', ']': '[', '}': '{'
     }[c]
 
+    is_nested = lambda: \
+      nest_levels['('] > 0 or \
+      nest_levels['['] > 0 or \
+      nest_levels['{'] > 0
+
     while True:
       if not self.has_token():
         self.unit.report('initializer not closed, did you forget a ";"?', loc)
         break
 
-      if self.cur.kind in [',', ';']:
+      if not is_nested() and self.cur.kind in terminator:
         break
 
       if self.cur.kind in ['(', '[', '{']:
@@ -229,13 +247,20 @@ class DParser:
       compound.tokens.append(self.cur)
       self.skip()
 
+    if len(compound.tokens) == 0:
+      self.unit.report(
+        'initializer cannot be empty',
+        compound.loc
+      )
+
     return compound
 
   def declaration(self, dspecs: Node, declarator: Node) -> Node | None:
+    TERMINATOR: list[str] = [',', ';']
     first: Node | None = None
 
     if (eq := self.token('=')) is not None:
-      first = self.collect_initializer(eq.loc)
+      first = self.collect_initializer(TERMINATOR, eq.loc)
 
     first_decl = SyntaxNode(declarator.loc, 'Declaration', {
       'declaration_specifiers': dspecs,
@@ -257,7 +282,7 @@ class DParser:
       initializer: Node | None = None
 
       if (eq := self.token('=')) is not None:
-        initializer = self.collect_initializer(eq.loc)
+        initializer = self.collect_initializer(TERMINATOR, eq.loc)
 
       new_decl = SyntaxNode(declarator.loc, 'Declaration', {
         'declaration_specifiers': dspecs,
@@ -333,6 +358,10 @@ class DParser:
     if not self.has_token(offset=1):
       return None
 
+    if not self.id_should_be_type():
+      return None
+
+    '''
     # meta_id are always types in these cases,
     # because a declarator name cannot be a meta_id
     if self.cur.kind == 'id' and self.tok(offset=1).kind in [
@@ -340,6 +369,7 @@ class DParser:
     ]:
       if not self.id_should_be_type():
         return None
+    '''
 
     return self.identifier_or_meta_id()
 
@@ -382,18 +412,52 @@ class DParser:
     return body
 
   @recoverable
+  def comma_enumerator(self) -> Node | None:
+    if self.token(',') is None:
+      return None
+
+    return self.enumerator()
+
+  @recoverable
+  def enumerator(self) -> Node | None:
+    if (name := self.identifier()) is None:
+      return None
+
+    if (eq := self.token('=')) is None:
+      return name
+
+    initializer = self.collect_initializer([',', '}'], eq.loc)
+
+    return SyntaxNode(name.loc, 'EnumeratorWithValue', {
+      'name': name,
+      'initializer': initializer,
+    })
+
+  @recoverable
+  def enumerator_list(self) -> MultipleNode | None:
+    if self.token('{') is None:
+      return None
+
+    if (first := self.enumerator()) is None:
+      return None
+
+    mn = self.collect_sequence(self.comma_enumerator)
+    mn.nodes.insert(0, first)
+
+    # trailing commas are allowed
+    self.token(',')
+    self.expect_token('}')
+    return mn
+
+  @recoverable
   def type_specifier(self) -> Node | None:
-    if self.cur.kind == 'meta_id' and self.cur.value == 'i':
+    if self.cur.kind == 'meta_id' and self.cur.value == 'builtin_t':
       tag = self.expect_token('meta_id')
       self.expect_token('(')
-      size = self.expect_token('num').value
+      name = str(self.expect_token('str').value)
       self.expect_token(')')
 
-      return TypeSizedIntNode(
-        # just for error recovery
-        size if isinstance(size, int) else 32,
-        tag.loc
-      )
+      return TypeBuiltinNode(name, tag.loc)
 
     builtin = self.token(
       'void', 'char', 'short',
@@ -409,18 +473,37 @@ class DParser:
     '''
     TODO:
       * atomic-type-specifier
-      * struct-or-union-specifier
-      * enum-specifier
     '''
 
+    if (spec_kw := self.token('enum')) is not None:
+      tname = self.identifier()
+      body = self.enumerator_list()
+
+      if tname is None and body is None:
+        self.unit.report(
+          'expected identifier, enum body or both',
+          self.cur.loc
+        )
+
+      return SyntaxNode(spec_kw.loc, 'EnumSpecifier', {
+        'name': tname,
+        'body': body,
+      })
+
     if (spec_kw := self.token('struct', 'union')) is not None:
-      name = self.identifier()
+      tname = self.identifier()
       body = self.struct_or_union_declaration_list(
         expect_braces=True, allow_method_mods=True
       )
 
+      if tname is None and body is None:
+        self.unit.report(
+          f'expected identifier, {spec_kw.kind} body or both',
+          self.cur.loc
+        )
+
       return SyntaxNode(spec_kw.loc, f'{spec_kw.kind.capitalize()}Specifier', {
-        'name': name,
+        'name': tname,
         'body': body,
       })
 
@@ -432,7 +515,13 @@ class DParser:
 
     return None
 
+  @recoverable
   def template_arguments(self, typedef_name: Token) -> TypeTemplatedNode | None:
+    if self.has_token(offset=1):
+      # this is a pointer type declaration
+      if self.cur.kind == '(' and self.tok(offset=1).kind == '*':
+        return None
+
     if self.token('(') is None:
       return None
 
@@ -490,6 +579,7 @@ class DParser:
 
     return dspecs
 
+  @recoverable
   def type_qualifier_list(self) -> Node:
     return self.collect_sequence(self.type_qualifier)
 
@@ -553,29 +643,54 @@ class DParser:
 
     '''
     TODO:
-      ? direct-declarator '[', ['*'] ']'
-      * direct-declarator '[' 'static' [type-qualifier-list] assignment-expression ']'
-      * direct-declarator '[' type-qualifier-list ['*'] ']'
-      * direct-declarator '[' type-qualifier-list ['static'] assignment-expression ']'
-      * direct-declarator '[' assignment-expression ']'
       ? direct-declarator '(' identifier-list ')'
     '''
 
-    if (opener := self.token('(')) is not None:
-      if self.token(')') is not None:
-        plist = (MultipleNode(opener.loc), None)
-      elif (plist := self.parameter_list()) is not None:
-        self.expect_token(')')
-      else:
-        return None
+    while self.has_token() and self.cur.kind in ['(', '[']:
+      loc: Loc = self.cur.loc
 
-      dd = SyntaxNode(opener.loc, 'ParameterListDeclarator', {
-        'declarator': dd,
-        'parameter_list': plist[0],
-        'ellipsis': plist[1]
-      })
+      if (new_dd := self.parameter_list_declarator(dd)) is not None:
+        dd = new_dd
+      elif (new_dd := self.array_declarator(dd)) is not None:
+        dd = new_dd
+      else:
+        break
 
     return dd
+
+  @recoverable
+  def array_declarator(self, dd: Node) -> Node | None:
+    if (opener := self.token('[')) is None:
+      return None
+
+    if \
+      (initializer := self.collect_initializer([']'], opener.loc)) is None:
+        return None
+
+    self.expect_token(']')
+
+    return SyntaxNode(opener.loc, 'ArrayDeclarator', {
+      'declarator': dd,
+      'size_initializer': initializer
+    })
+
+  @recoverable
+  def parameter_list_declarator(self, dd: Node) -> Node | None:
+    if (opener := self.token('(')) is None:
+      return None
+
+    if self.token(')') is not None:
+      plist = (MultipleNode(opener.loc), None)
+    elif (plist := self.parameter_list()) is not None:
+      self.expect_token(')')
+    else:
+      return None
+
+    return SyntaxNode(opener.loc, 'ParameterListDeclarator', {
+      'declarator': dd,
+      'parameter_list': plist[0],
+      'ellipsis': plist[1]
+    })
 
   @recoverable
   def declarator(self) -> Node | None:
