@@ -17,7 +17,7 @@ KEYWORDS: list[str] = [
   '_Atomic', '_Bool', '_Complex',
   '_Generic', '_Imaginary', '_Noreturn',
   '_Static_assert', '_Thread_local',
-  'inline', 'restrict', '_Cdecl'
+  'inline', 'restrict', '_Cdecl', '__declspec'
 ]
 
 PUNCTUATION: list[str] = [

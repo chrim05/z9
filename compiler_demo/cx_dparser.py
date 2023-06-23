@@ -19,6 +19,13 @@ TYPE_QUALS = (
   '_Cdecl'
 )
 
+'''
+TODO:
+  * i need to clean the produced tree,
+    because it's too verbose, especially
+    with declarators
+'''
+
 def recoverable(func):
   '''
   this is a decorator for parsing methods of DParser;
@@ -213,7 +220,8 @@ class DParser:
   def collect_initializer(
     self,
     terminator: list[str],
-    loc: Loc
+    loc: Loc,
+    allow_empty: bool = False
   ) -> CompoundNode:
     compound = CompoundNode(loc)
     nest_levels: dict[str, int] = {
@@ -248,7 +256,7 @@ class DParser:
       compound.tokens.append(self.cur)
       self.skip()
 
-    if len(compound.tokens) == 0:
+    if not allow_empty and len(compound.tokens) == 0:
       self.unit.report(
         'initializer cannot be empty',
         compound.loc
@@ -256,9 +264,13 @@ class DParser:
 
     return compound
 
-  def declaration(self, dspecs: Node, declarator: Node) -> Node | None:
+  def declaration(self, dspecs: Node, declarator: Node, allow_bitfield: bool) -> Node | None:
     TERMINATOR: list[str] = [',', ';']
     first: Node | None = None
+    bitfield: Token | None = None
+
+    if allow_bitfield and self.token(':') is not None:
+      bitfield = self.expect_token('num')
 
     if (eq := self.token('=')) is not None:
       first = self.collect_initializer(TERMINATOR, eq.loc)
@@ -268,6 +280,9 @@ class DParser:
       'declarator': declarator,
       'initializer': first,
     })
+
+    if allow_bitfield:
+      first_decl.data['bitfield'] = bitfield
 
     if self.token(';') is not None:
       return first_decl
@@ -295,7 +310,7 @@ class DParser:
 
     # when not new decls are being added
     if len(decls.nodes) == 1:
-      self.unit.report('did you mean ";" or ","?', self.cur.loc)
+      self.unit.report(f'did you mean {" ".join(map(repr, TERMINATOR))}?', self.cur.loc)
 
     return decls
 
@@ -313,7 +328,15 @@ class DParser:
 
     return mn
 
-  def storage_class_specifier(self) -> Token | None:
+  def storage_class_specifier(self) -> Token | DeclSpecNode | None:
+    if (ds := self.token('__declspec')) is not None:
+      # we don't need `@recoverable` for this
+      self.expect_token('(')
+      name = str(self.expect_token('id').value)
+      self.expect_token(')')
+
+      return DeclSpecNode(name, ds.loc)
+
     return self.token(*CLASS_SPECS)
 
   def id_should_be_type(self) -> bool:
@@ -335,6 +358,12 @@ class DParser:
     QUALS = CLASS_SPECS + FUNCTION_SPECS + TYPE_QUALS
 
     for t in self.current_dspecs.nodes:
+      # `__declspec` is a class specifier just like `extern`
+      # but it is a bit more complex as data, so here i avoid
+      # it to be interpreted as a type
+      if isinstance(t, DeclSpecNode):
+        continue
+
       if not isinstance(t, Token):
         return False
 
@@ -532,7 +561,9 @@ class DParser:
     #       since templates can accept expressions as well
 
     self.expect_token(')')
-    raise NotImplementedError(f'TODO: template_arguments ({self.cur})')
+    raise NotImplementedError(
+      f'TODO: template_arguments -> templated_name: {typedef_name}, cur: {self.cur}'
+    )
 
   def function_specifier(self) -> Token | None:
     return self.token(*FUNCTION_SPECS)
@@ -595,17 +626,55 @@ class DParser:
     })
 
   @recoverable
+  def direct_abstract_declarator(self) -> Node | None:
+    dad: Node | None = None
+
+    if (dad := self.parameter_list_declarator(dad)) is not None:
+      pass # just to keep lines cleaner, they are really messy here
+    elif (opener := self.token('(')) is not None:
+      if (dad := self.abstract_declarator()) is None:
+        dad = SyntaxNode(opener.loc, 'EmptyParameterListAbstractDeclarator', {})
+
+      self.expect_token(')')
+    else:
+      dad = self.array_declarator(dad, midfix='Abstract')
+
+    if dad is None:
+      return None
+
+    while self.has_token() and self.cur.kind in ['(', '[']:
+      loc: Loc = self.cur.loc
+
+      if (new_dd := self.parameter_list_declarator(dad)) is not None:
+        dd = new_dd
+      elif (new_dd := self.array_declarator(dd)) is not None:
+        dd = new_dd
+      else:
+        break
+
+    return dad
+
+  @recoverable
+  def abstract_declarator(self, loc: Loc) -> Node | None:
+    if (pointer := self.pointer()) is None:
+      return self.direct_abstract_declarator()
+
+    dad = self.direct_abstract_declarator()
+
+    return SyntaxNode(loc, 'AbstractDeclarator', {
+      'pointer': pointer,
+      'direct_abstract_declarator': dad,
+    })
+
+  @recoverable
   def parameter_declaration(self) -> Node | None:
     if (dspecs := self.declaration_specifiers()) is None:
       return None
 
-    declarator = self.declarator()
-    loc = declarator.loc if declarator is not None else dspecs.loc
+    if (declarator := self.declarator()) is None:
+      declarator = self.abstract_declarator(dspecs.loc)
 
-    '''
-    TODO:
-      * abstract-declarator
-    '''
+    loc = declarator.loc if declarator is not None else dspecs.loc
 
     return SyntaxNode(loc, 'ParameterDeclaration', {
       'declaration_specifiers': dspecs,
@@ -660,17 +729,17 @@ class DParser:
     return dd
 
   @recoverable
-  def array_declarator(self, dd: Node) -> Node | None:
+  def array_declarator(self, dd: Node, midfix: str = '') -> Node | None:
     if (opener := self.token('[')) is None:
       return None
 
     if \
-      (initializer := self.collect_initializer([']'], opener.loc)) is None:
+      (initializer := self.collect_initializer([']'], opener.loc, allow_empty=True)) is None:
         return None
 
     self.expect_token(']')
 
-    return SyntaxNode(opener.loc, 'ArrayDeclarator', {
+    return SyntaxNode(opener.loc, f'Array{midfix}Declarator', {
       'declarator': dd,
       'size_initializer': initializer
     })
@@ -734,7 +803,7 @@ class DParser:
       case _:
         return PoisonedNode(mdir.loc) # unreachable
 
-  def external_declaration(self, allow_method_mods: bool) -> Node:
+  def external_declaration(self, is_inside_structunion: bool) -> Node:
     '''
     TODO:
       * _Static_assert
@@ -742,7 +811,7 @@ class DParser:
 
     # parsing meta directives, such as `use_feature`
     if \
-      not allow_method_mods and \
+      not is_inside_structunion and \
         self.cur.kind == 'meta_id' and \
           self.cur.value in META_DIRECTIVES:
       return self.parse_meta_directive()
@@ -779,9 +848,9 @@ class DParser:
       self.skip()
       return PlaceholderNode()
 
-    if (node := self.function_definition(dspecs, declarator, allow_method_mods)) is None:
+    if (node := self.function_definition(dspecs, declarator, is_inside_structunion)) is None:
       node = cast(SyntaxNode, self.expect_node(
-        self.declaration(dspecs, declarator),
+        self.declaration(dspecs, declarator, is_inside_structunion),
         'top level members must be either function definition or declaration'
       ))
 

@@ -7,5 +7,5 @@ t = TranslationUnit(f)
 t.lex()
 t.dparse()
 
-t.dump_root()
+# t.dump_root()
 t.print_diagnostic()

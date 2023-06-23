@@ -44,3 +44,6 @@ k x[10];
 k const x[2 * 2 + const_call()];
 const k *x[2 * 2];
 */
+
+// abstract declarator
+void foo(int(*bar)(void const*));

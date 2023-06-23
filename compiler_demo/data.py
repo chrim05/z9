@@ -150,3 +150,15 @@ class TypeTemplatedNode(Node):
     return {
       '@class': type(self).__name__,
     }
+
+class DeclSpecNode(Node):
+  def __init__(self, name: str, loc: Loc) -> None:
+    super().__init__(loc)
+
+    self.name: str = name
+
+  def as_serializable(self) -> object:
+    return {
+      '@class': type(self).__name__,
+      'name': self.name,
+    }
