@@ -1,19 +1,23 @@
+// THIS IS JUST A SKETCH
+// AND IT DOESN'T EVEN MAKE SENSE
+// I'M GONNA DEPRECATE THIS
+
 @import mem;
 
 const len = (size_t)10;
 
 @test "normal malloc" {
-    int32_t* a = mem.alloc_array(int32_t, len);
+    const a = mem.alloc_array<int32_t>(len);
     @defer mem.drop(a);
 
-    int8_t* b = mem.alloc_array(int8_t, len);
+    const b = mem.alloc_array<int8_t>(len);
     @defer mem.drop(b);
 }
 
 // TODO: design this in a better way
 @test "joint malloc" {
-    @unpack(auto a, auto b) = @joint(
-        int32_t, int8_t, len, mem.alloc_array
+    @unpack(auto a, auto b) = @joint<int32_t, int8_t>(
+        len, mem.alloc_array
     );
     @defer mem.drop(a);
 }

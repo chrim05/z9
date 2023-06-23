@@ -1,4 +1,4 @@
-@includo std("stdint.h");
+#include <stdint.h>
 
 int32_t partition(int32_t arr[], int32_t low, int32_t high) {
     int32_t pivot = arr[high];
@@ -29,6 +29,4 @@ void quicksort(int32_t arr[], int32_t low, int32_t high) {
 @test "quicksorting an int array" {
     int32_t arr[] = { 10, 7, 8, 9, 1, 5 };
     quicksort(arr);
-
-    return 0;
 }

@@ -1,4 +1,4 @@
-@includo std("stdio.h");
+#include <stdio.h>
 
 // breaking features can be enabled
 // via the `use_feature` tag

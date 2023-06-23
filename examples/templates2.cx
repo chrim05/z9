@@ -1,6 +1,6 @@
 @import mem;
 
-typedef(typedef t) struct {
+typedef<typedef t> struct {
     t*     buffer;
     size_t capacity;
     size_t length;
@@ -39,7 +39,7 @@ void main() {
     //       * overload operator `[]`
     //       * iter the item in foreach
 
-    vec_t(int32_t) numbers = { 1, 2, 3 };
+    vec_t<int32_t> numbers = { 1, 2, 3 };
     @defer numbers.drop();
 
     numbers[0] = numbers[1] - 2;

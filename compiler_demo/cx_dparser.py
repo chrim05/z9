@@ -325,7 +325,7 @@ class DParser:
 
   def storage_class_specifier(self) -> Token | DeclSpecNode | None:
     if (ds := self.token('__declspec')) is not None:
-      # we don't need `@recoverable` for this
+      # we don't need `@recoverable` anyway for this function
       self.expect_token('(')
       name = str(self.expect_token('id').value)
       self.expect_token(')')
@@ -542,12 +542,7 @@ class DParser:
 
   @recoverable
   def template_arguments(self, typedef_name: Token) -> TypeTemplatedNode | None:
-    if self.has_token(offset=1):
-      # this is a pointer type declaration
-      if self.cur.kind == '(' and self.tok(offset=1).kind == '*':
-        return None
-
-    if self.token('(') is None:
+    if self.token('<') is None:
       return None
 
     # TODO: collect template argument's as tokens
@@ -555,9 +550,9 @@ class DParser:
     #       compiler can't distinguish `some_t` from `some`
     #       since templates can accept expressions as well
 
-    self.expect_token(')')
+    self.expect_token('>')
     raise NotImplementedError(
-      f'TODO: template_arguments -> templated_name: {typedef_name}, cur: {self.cur}'
+      f'TODO: template_arguments -> templated_name: {typedef_name}, loc: {self.cur.loc}'
     )
 
   def function_specifier(self) -> Token | None:

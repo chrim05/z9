@@ -1,7 +1,11 @@
+@link_with pkg("some_package");
+
+const some_meta_var = "lib.a";
+@link_with(some_meta_var);
+
 // file compiled with: `cxc link_with.cx`
 // so you don't need to add other flags to link
 // with the object
-
 @link_with("clang_object.o");
 @use_feature strict_rules;
 
@@ -16,7 +20,7 @@ int add(int a, int b);
 
 // meta block is executed at compile time
 @meta {
-    // also here you can see the new switch
+    // also here you can see the new switch syntax
     switch (@target_cpu) {
         case @target_cpu_t.x86_64, @target_cpu_t.x86 {
             @link_with(@"libs/{@target_cpu}/libraylib.a");

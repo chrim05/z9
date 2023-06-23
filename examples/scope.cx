@@ -1,5 +1,4 @@
 @import io;
-@includo string;
 
 // `@scope` instead of `@defer` is preferred
 // with items which supports it;
@@ -8,11 +7,11 @@
 // you can use `@defer` on them, but remember to
 // implement `drop` function for your structs
 @test "scoped file streams" {
-    string_t content  = io.read_all_file("scope.cx");
+    const content = io.read_all_file_into_temp("scope.cx");
 
     // will be allocated at the first use
     auto storage = storage_t.new();
-    @scope storage; // short hand for `storage.drop()`
+    @scope storage; // short hand for `@defer storage.drop()`
 
-    string_t content2 = io.storage_read_all_file(&storage, "scope.cx");
+    const content2 = io.read_all_file(&storage, "scope.cx");
 }

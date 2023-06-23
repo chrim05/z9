@@ -1,6 +1,7 @@
 @use_feature strict_rules;
-// * every memory location
-//   must be explicitly uninitialized via `@undef`
+// * every uninitialized memory location
+//   must be explicitly assigned with `@undef`
+//   `int x = @undef;`
 //
 // * unused function calls must be discarded
 //
@@ -10,7 +11,7 @@
 //   (except for parameters);
 //   immutated pointers must be marked as `const`
 //
-// * all declared structs must be marked as
-//   `@opt` or `@reprc`
-//
 // * conditions must be of type `_Bool`
+//
+// * `0` is not coerced to pointer automatically
+//   only `@null` is accepted

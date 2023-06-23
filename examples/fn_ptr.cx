@@ -1,15 +1,21 @@
-@includo std("stdint.h");
+@test "classic syntax for function pointers" {
+    int (*op)(int, int) = &add;
 
-void main() {
-    @fn int32_t (int32_t, int32_t)* op = &add;
-
-    int32_t r = op(1, 2);
+    int r = op(1, 2);
 }
 
-int32_t add(int32_t a, int32_t b) {
+@test "new syntax for function pointers" {
+    @fn int (int, int)* op = &add;
+    const anti_op = &sub;
+
+    const r1 = op(1, 2);
+    const r2 = anti_op(r1, 1);
+}
+
+int add(int a, int b) {
     return a + b;
 }
 
-int32_t sub(int32_t a, int32_t b) {
+int sub(int a, int b) {
     return a - b;
 }

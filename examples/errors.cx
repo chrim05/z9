@@ -1,4 +1,4 @@
-@includo std("stdint.h");
+#include <stdint.h>
 
 // disallowing int implicit casts
 // (it actually does a lot of other things

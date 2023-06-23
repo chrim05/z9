@@ -1,9 +1,9 @@
 @use_feature strict_rules;
 
-sum_t add(typedef sum_t, sum_t a, sum_t b) {
+sum_t add<typedef sum_t>(sum_t a, sum_t b) {
     return a + b;
 }
 
 @test "templated function" {
-    const x = add(int8_t, 1, 2);
+    const x = add<int8_t>(1, 2);
 }

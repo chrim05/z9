@@ -1,31 +1,25 @@
 // normal include method
 #include "local.h"
 
-// including a local header ONLY ONCE (that's why includo, instead of include)
-// (despite the content of the header, even if it has no `#ifdef #define #endif`)
-@includo "local.h";
-
-// including only once from a package (this means
-// that if the package is not locally installed
-// it will be downloaded and cached)
-@includo package("some_library");
-@includo package("another_library/has_multiple_headers.h");
-
-// downloads and caches the header
-@includo require("https://github.com/raysan5/raylib/blob/master/src/raylib.h")
-
-// shorthand for `@includo package("foo");`
-@includo some;
-
-// IM NOT SURE ABOUT IMPORT; PROBABLY IT WILL BE REJECTED
-// INCLUDO DOES ALL THE NECESSARY, IT JUST MIXES IDENTIFIERS
-
-// ????
+// `@import` containerizes all top level declarations
+// of a file; another thing is that you can't use macros
+// of that file because importing is done after preprocessing
 @import "local.h" lib;
-@import package("some_library") lib2;
-@import some_library; // short hand for `@import package("somelib") somelib;`
+// importing from the `packages` compiler folder
+@import pkg("some_library") lib2;
+// short hand for `@import pkg("some_library") some_library;`
+@import some_library;
 
 @test "lib" {
-    int x = lib.foo();
+    const x = lib.foo();
+    const y = lib2.bar();
+    const z = some_library.baz();
 }
-// ????
+
+@import "local.h" -> {
+    decl_inside_local,
+    another_one -> alias
+};
+
+@import cxc -> *;
+@import url("https://some_host.com/some_header.h") -> *;

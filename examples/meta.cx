@@ -3,6 +3,9 @@
 // executed at compile time
 @meta {
     if (@filename == "meta.cx")
+        // you should be able to use
+        // either `printf` or `io.println`
+        // but this is shorter to type
         @dbg("foo");
 }
 
@@ -14,8 +17,8 @@ void main() {
                   // then `y` will be a meta const
 
     // in normal c compilers, `x` and `y` would be immutable variables
-    // but cx treats them as constexprs, because their initializers
-    // are constexpr (cx calls them `meta values`)
+    // but cxc treats them as constexprs, because their initializers
+    // are constexpr (cxc calls them `meta values`)
 
     // here `k` is not meta const, but just
     // an immutable variable

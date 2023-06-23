@@ -1,5 +1,5 @@
 void main() {
-    // it does not expand to NULL
+    // it does not use `NULL` under the hood
     // but it's still compatible with it
     int* abc = @null;
 }

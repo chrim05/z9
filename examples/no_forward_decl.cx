@@ -1,7 +1,8 @@
-@includo std("stdio.h");
-@includo std("stdint.h");
+#include <stdio.h>
+#include <stdint.h>
 
-@use_feature explicit_undef;
+// for explicit undef
+@use_feature strict_rules;
 
 void main() {
     cpu_t cpu = @undef;

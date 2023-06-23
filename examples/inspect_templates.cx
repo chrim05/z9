@@ -1,0 +1,70 @@
+@import cxc -> {
+    type_kind_t
+};
+
+t add<typedef t>(t a, t b) {
+    // when the condition of the `if` statement
+    // is a meta value, the body is not evaluated
+    // if the meta value is `false`,
+    // so the compiler error won't be triggered
+    if (@info(t).kind == type_kind_t.clong)
+        @report("long is not supported")
+
+    return a + b;
+}
+
+#include <stdint.h>
+
+@import mem -> { buffer_t };
+
+t deserialize_next<typedef t>(
+    buffer_t<uint8_t> const* bin,
+    size_t idx
+) {
+    const i = @info(t);
+
+    // when integer or floating
+    // (int, long long, double, ...)
+    if (i.is_numeric())
+        return bin.reinterpret_as<t>()[idx / i.size()];
+
+    switch (i.kind) {
+        case type_kind_t.cstruct {
+            t instance;
+
+            for @idx(const field_idx, const field : i.get_fields())
+                // pythonic way
+                @set_field(
+                    instance, field.name,
+                    deserialize_next<@info_to_type(field.type)>(
+                        bin, idx + field_idx
+                    )
+                );
+
+            return instance;
+        }
+
+        case type_kind_t.cunion {
+            @todo();
+        }
+
+        default {
+            @report(@"type '{i}' not supported for deserialization");
+        }
+    }
+}
+
+t deserialize<typedef t>(buffer_t<uint8_t> const* bin) {
+    return deserialize_next<t>(bin, 0);
+}
+
+@test "deserializing simple data" {
+    const data = (buffer_t<uint8_t>) {
+        255, 200, 0, 0, // int x
+        200, 0,         // short y
+    };
+
+    const instance = deserialize<struct { int x; short y; }>(&data);
+    @expect(instance.x == 51455);
+    @expect(instance.y == 200);
+}

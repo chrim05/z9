@@ -1,6 +1,5 @@
-@includo string;
-@includo std("stdint.h");
-@includo std("stdbool.h");
+#include <stdint.h>
+#include <stdbool.h>
 
 @test "better ascii strings for c" {
     char const* p = "1234";
@@ -11,33 +10,36 @@
         @dbg(c, i);
 
     // it also has the null terminator (unfortunately)
-    string_t s = "hello";
+    mystring_t s = "hello"; // implicitly calls `mystring_t.from_str`
     @expect(s.len() == 5);
 
     for (char c : s)
         @dbg(c);
 
     // "he", but you are gonna have problems with null terminator
-    const s2 = string_t.from_str(2, s.buffer);
+    const s2 = mystring_t.new(2, s.buffer);
     @expect(s != s2);
 }
 
-// THIS IS JUST TO SHOW HOW IT WORKS UNDER THE HOOD
-// it is already declared in `package("string")`
+// THIS IS JUST TO SHOW HOW OPERATORS WORK UNDER THE HOOD
+// it is already declared in `pkg("string").string_t`
 typedef struct {
     char*  buffer;
     size_t length;
 
-    // static parameters are like typedef parameters;
-    // both are template params and both must be declared
-    // before all other params; they are evaluated after
-    // typedef params but before everything other;
-    // see `templates.cx`
-    @this_t from_str(static size_t length, char* text) static {
+    @this_t new(size_t length, char* buffer) static {
         return (@this_t) {
-            .buffer = (char*)text,
+            .buffer = buffer,
             .length = length
         };
+    }
+
+    @this_t from_str<size_t length, char const* text>() static {
+        // in this case i can just reuse the main constructor
+        // but the `from_str` function is useful because
+        // it's based on a template and you can inspect
+        // the template arguments with metaprogramming
+        return @this_t.new(length, (char*)text);
     }
 
     char* nth(size_t index) {
@@ -61,4 +63,4 @@ typedef struct {
 
         return true;
     }
-} string_t;
+} mystring_t;

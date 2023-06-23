@@ -1,6 +1,7 @@
 // what about traits?
 
 // IM NOT SURE ABOUT THIS, it's just a sketch
+// and i don't even like it;
 // this would bring cx too much in the oop direction
 // and that's absolutely not my goal
 //
@@ -10,14 +11,10 @@
 // and exposing 2/3 different `@impl` tags to different under-the-hood-implementations
 // sounds a bad idea.
 
-@includo std("stdint.h");
-@includo std("stdbool.h");
+#include <stdint.h>
+#include <stdbool.h>
 
-@includo string;
-// this also makes it mandatory
-// to explicitly declare all structs with `@opt`;
-// you can still use c struct memory layout
-// via `@reprc`
+@import string -> { string_t };
 @use_feature strict_rules;
 
 typedef @interface {
@@ -35,7 +32,7 @@ typedef @interface {
     bool eq(@this_t other) const;
 } compare_i;
 
-typedef @impl(arithmetic_i, inspect_i, compare_i) @opt struct {
+typedef @impl(arithmetic_i, inspect_i, compare_i) @attr(opt) struct {
     double re;
     double im;
 
@@ -76,7 +73,7 @@ void inspect(debug_i debuggable) {
     io.eprintln(debuggable.inspect());
 }
 
-void inspect_generic(typedef @impl(debug_i) t, t debuggable) {
+void inspect_generic<@impl(debug_i) t>(t debuggable) {
     io.eprintln(debuggable.inspect());
 }
 
