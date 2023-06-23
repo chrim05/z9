@@ -1,3 +1,34 @@
+from typing import Callable, Any
+
+INDENT_STEP: str = '  '
+indent_level: int = 0
+
+def indent() -> str:
+  return INDENT_STEP * indent_level
+
+def idented_line() -> str:
+  return f'\n{indent()}'
+
+def indented_repr(
+  collection: list[Any],
+  repr_fn: Callable[[Any], str],
+  edges: tuple[str, str]
+) -> str:
+  global indent_level
+  indent_level += 2
+
+  s: str = ''
+  sep: str = ','
+
+  for i, e in enumerate(collection):
+    if i == len(collection) - 1:
+      sep = ''
+
+    s += f'{idented_line()}{repr_fn(e)}{sep}'
+
+  indent_level -= 2
+  return f'{edges[0]}{s}{idented_line()}{edges[1]}'
+
 class Loc:
   def __init__(self, filepath: str, line: int, col: int) -> None:
     self.filepath: str = filepath
@@ -11,16 +42,8 @@ class Node:
   def __init__(self, loc: Loc) -> None:
     self.loc: Loc = loc
 
-  def as_serializable(self) -> object:
+  def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
-
-
-def optional_as_serializable(optional: Node | None) -> object:
-  if optional is None:
-    return None
-
-  return optional.as_serializable()
-
 
 class Token(Node):
   def __init__(
@@ -34,34 +57,27 @@ class Token(Node):
     self.kind: str = kind
     self.value: object = value
 
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-      'kind': self.kind,
-      'value': self.value
-    }
-
   def __repr__(self) -> str:
-    return f'{self.loc}: Token({repr(self.kind)}, {repr(self.value)})'
+    return f'{self.kind}({repr(self.value)})'
 
 class PoisonedNode(Node):
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__
-    }
+  def __repr__(self) -> str:
+    return f'PoisonedNode'
 
 class CompoundNode(Node):
   def __init__(self, loc: Loc) -> None:
     super().__init__(loc)
     self.tokens: list[Token] = []
 
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-      'tokens': [
-        t.as_serializable() for t in self.tokens
-      ]
-    }
+  def __repr__(self) -> str:
+    if len(self.tokens) <= 2:
+      return f'CompoundNode{repr(self.tokens)}'
+
+    body = indented_repr(
+      self.tokens, repr, ('[', ']')
+    )
+
+    return f'CompoundNode{body}'
 
 class SyntaxNode(Node):
   '''
@@ -80,16 +96,20 @@ class SyntaxNode(Node):
     self.syntax_name: str = syntax_name
     self.data: dict[str, Node | None] = data
 
-  def as_serializable(self) -> object:
-    s: dict[str, object] = {
-      # '@class': type(self).__name__,
-      '@syntax_name': self.syntax_name,
-    }
+  def __repr__(self) -> str:
+    if len(self.data) == 1:
+      k = next(iter(self.data))
+      v = self.data[k]
 
-    for k, v in self.data.items():
-      s[k] = optional_as_serializable(v)
+      return f'{self.syntax_name}({k}: {v})'
 
-    return s
+    body = indented_repr(
+      list(self.data.items()),
+      lambda i: f'{i[0]}: {repr(i[1])}',
+      ("(", ")")
+    )
+
+    return f'{self.syntax_name}{body}'
 
 class MultipleNode(Node):
   def __init__(self, loc: Loc) -> None:
@@ -97,20 +117,15 @@ class MultipleNode(Node):
 
     self.nodes: list[Node] = []
 
-  '''
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-      'nodes': [
-        n.as_serializable() for n in self.nodes
-      ]
-    }
-  '''
+  def __repr__(self) -> str:
+    if len(self.nodes) <= 1:
+      return f'MultipleNode{repr(self.nodes)}'
 
-  def as_serializable(self) -> object:
-    return [
-      n.as_serializable() for n in self.nodes
-    ]
+    body = indented_repr(
+      self.nodes, repr, ('[', ']')
+    )
+
+    return f'MultipleNode{body}'
 
 class PlaceholderNode(Node):
   def __init__(self) -> None:
@@ -123,14 +138,20 @@ class UseFeatureDirective(Node):
     self.features: list[Token] = []
     self.body: MultipleNode | None = None
 
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-      'features': [
-        f.as_serializable() for f in self.features
-      ],
-      'body': optional_as_serializable(self.body)
-    }
+  def __repr__(self) -> str:
+    if self.body is None:
+      return f'UseFeatureDirective{repr(self.features)}'
+
+    features = indented_repr(
+      self.features, repr, ("[", "]")
+    )
+    features = f'features: {features}'
+
+    body = repr(self.body)
+    body = f'body: {body}'
+
+    return \
+      f'UseFeatureDirective({idented_line()}{features},{idented_line()}{body})'
 
 class TypeBuiltinNode(Node):
   def __init__(self, name: str, loc: Loc) -> None:
@@ -138,20 +159,12 @@ class TypeBuiltinNode(Node):
 
     self.name: str = name
 
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-      'name': self.name
-    }
+  def __repr__(self) -> str:
+    return f'TypeBuiltinNode({repr(self.name)})'
 
 class TypeTemplatedNode(Node):
   def __init__(self, loc: Loc) -> None:
     super().__init__(loc)
-
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-    }
 
 class DeclSpecNode(Node):
   def __init__(self, name: str, loc: Loc) -> None:
@@ -159,8 +172,5 @@ class DeclSpecNode(Node):
 
     self.name: str = name
 
-  def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-      'name': self.name,
-    }
+  def __repr__(self) -> str:
+    return f'DeclSpecNode({repr(self.name)})'

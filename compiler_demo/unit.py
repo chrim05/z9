@@ -5,6 +5,9 @@ class TranslationUnit:
   def __init__(self, filepath: str) -> None:
     from subprocess import run
     from tempfile import NamedTemporaryFile
+    from rich.console import Console
+
+    self.console = Console()
 
     preprocessed_filepath: str = NamedTemporaryFile().name
     self.clang_cpp = run(
@@ -20,20 +23,23 @@ class TranslationUnit:
     self.errors: list[tuple[str, Loc]] = []
     self.warnings: list[tuple[str, Loc]] = []
 
-  def print_diagnostic(self) -> None:
-    from rich.console import Console
+  def fix_message(self, m: str) -> str:
+    return m.replace('[', '\[')
 
+  def print_diagnostic(self) -> None:
     if self.clang_cpp != 0:
       return
 
-    console = Console()
-    fix_message = lambda m: m.replace('[', '\[')
+    dprint = lambda m, l, color: \
+      self.console.print(
+        f'[b][{color}]{l}[/{color}][/b]: [b]{self.fix_message(m)}[/b]'
+      )
 
     for message, loc in self.errors:
-      console.print(f'[red]{loc}[/]: {fix_message(message)}')
+      dprint(message, loc, 'red')
 
     for message, loc in self.warnings:
-      console.print(f'[yellow]{loc}[/]: {fix_message(message)}')
+      dprint(message, loc, 'yellow')
 
   def report(self, message: str, loc: Loc) -> None:
     self.errors.append((message, loc))
@@ -71,7 +77,8 @@ class TranslationUnit:
       return
 
     # the top level scope behaves the same as a
-    # struct's or union's body
+    # struct's or union's body, except that functions
+    # cannot have method modifiers (such as `t f() const|static {}`)
     self.root = DParser(self).struct_or_union_declaration_list(
       expect_braces=False, allow_method_mods=False
     )
@@ -80,4 +87,6 @@ class TranslationUnit:
     if self.clang_cpp != 0:
       return
 
-    print(dumps(self.root.as_serializable(), indent=2))
+    self.console.print(
+      self.fix_message(repr(self.root))
+    )
