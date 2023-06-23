@@ -14,6 +14,7 @@ class Node:
   def as_serializable(self) -> object:
     raise NotImplementedError(type(self).__name__)
 
+
 def optional_as_serializable(optional: Node | None) -> object:
   if optional is None:
     return None
@@ -80,14 +81,15 @@ class SyntaxNode(Node):
     self.data: dict[str, Node | None] = data
 
   def as_serializable(self) -> object:
-    return {
-      '@class': type(self).__name__,
-      'syntax_name': self.syntax_name,
-      'data': {
-        k: v.as_serializable() if v else None
-          for k, v in self.data.items()
-      }
+    s: dict[str, object] = {
+      # '@class': type(self).__name__,
+      '@syntax_name': self.syntax_name,
     }
+
+    for k, v in self.data.items():
+      s[k] = optional_as_serializable(v)
+
+    return s
 
 class MultipleNode(Node):
   def __init__(self, loc: Loc) -> None:

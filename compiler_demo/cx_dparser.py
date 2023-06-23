@@ -174,17 +174,12 @@ class DParser:
       * [declaration-list]
     '''
 
-    if not isinstance(declarator, SyntaxNode):
-      return None
-
-    direct_decl = declarator.data['direct_declarator']
-
     if \
-      not isinstance(direct_decl, SyntaxNode) or \
-        direct_decl.syntax_name != 'ParameterListDeclarator':
+      not isinstance(declarator, SyntaxNode) or \
+        declarator.syntax_name != 'ParameterListDeclarator':
       return None
 
-    direct_decl = direct_decl.data['declarator']
+    direct_decl = declarator.data['declarator']
 
     # it may be a function pointer, this means no body is involved
     # but it must be interpreted as a type
@@ -769,6 +764,10 @@ class DParser:
 
     if direct_declarator is None:
       return None
+
+    # this is useful to make the tree cleaner
+    if pointer is None:
+      return direct_declarator
 
     return SyntaxNode(direct_declarator.loc, 'Declarator', {
       'pointer': pointer,

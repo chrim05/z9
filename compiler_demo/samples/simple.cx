@@ -42,8 +42,13 @@ enum { X, Y = 10 + 2 * const_call(), Z, };
 int x[10];
 k x[10];
 k const x[2 * 2 + const_call()];
-const k *x[2 * 2];
-*/
+const k* x[2 * 2];
 
 // abstract declarator
 void foo(int(*bar)(void const*));
+*/
+
+int (*x)(int a);
+int y(int a);
+int *z;
+int w;
