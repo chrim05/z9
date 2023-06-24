@@ -1,7 +1,7 @@
 @import io;
 
-@test "embedding big strings from files at compile time" {
-    // (executed at compile time, results in a large string literal)
+@test "embedding big strings from files at comtime" {
+    // (executed at comtime, results in a large string literal)
     // the source code is embedding itself in the source code
     const source_code = @embed("embed.cx");
 

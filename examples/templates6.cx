@@ -7,7 +7,7 @@ t add<typedef t>(t a, t b) {
     // is a meta value, the body is not evaluated
     // if the meta value is `false`,
     // so the compiler error won't be triggered
-    if (@info(t).kind == type_kind_t.clong)
+    if (@info(t).value().kind == @info(long).value().kind)
         @report("long is not supported")
 
     return a + b;
@@ -21,7 +21,15 @@ t deserialize_next<typedef t>(
     buffer_t<uint8_t> const* bin,
     size_t idx
 ) {
-    const i = @info(t);
+    // getting the `typedef` info
+    // about `t`,
+    // for example: `@info(struct {...}).value`
+    //              gives you access to fields and
+    //              all the meta stuff related to the
+    //              type `struct {...}` (the size as well)
+    //
+    // see `templates4.cx`
+    const i = @info(t).value();
 
     // when integer or floating
     // (int, long long, double, ...)
@@ -32,11 +40,11 @@ t deserialize_next<typedef t>(
         case type_kind_t.cstruct {
             t instance;
 
-            for @idx(const field_idx, const field : i.get_fields())
+            for @idx(const field_idx, const field : i.fields())
                 // pythonic way
                 @set_field(
                     instance, field.name,
-                    deserialize_next<@info_to_type(field.type)>(
+                    deserialize_next<@decl_t(field.type)>(
                         bin, idx + field_idx
                     )
                 );

@@ -11,5 +11,5 @@
 }
 
 @test "compiling files at runtime down to an ast form" {
-    // TODO
+    todo()
 }

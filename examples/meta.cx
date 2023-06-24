@@ -1,6 +1,6 @@
 // also see `link_with.cx`
 
-// executed at compile time
+// executed at comtime
 @meta {
     if (@filename == "meta.cx")
         // you should be able to use

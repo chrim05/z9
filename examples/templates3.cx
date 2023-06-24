@@ -1,0 +1,70 @@
+#include <stdint.h>
+#include <malloc.h>
+
+@use_feature strict_rules;
+
+// TODO: redesign `@expand`, i don't like it
+//       since it's too c++ like,
+//       i would prefer something more zig like.
+
+// makes a single allocation and splits it
+// among all the types you provided as template arguments;
+//
+// NOTE: you must use `joint_realloc` instead of `realloc`,
+//       because you need to traslate each chunk and not only
+//       the main one.
+//
+// NOTE: you must use `joint_free` instead of `free`,
+//       because here there's only one real allocation (the first one)
+//       the others are just offsets to the first one.
+//
+@tup_t<@expand(types)*> joint_malloc<@tup_t<typedef> types>(
+    int length
+) {
+    // calculating the size of each array
+    @meta_var size_t sizes[types.len] = @undef;
+    @meta_var auto sum = 0;
+
+    for inline @idx(const i, const t : types) {
+        const size = ;
+
+        sum += size;
+        sizes[i] = size;
+    }
+
+    const m = malloc(sum);
+
+    @meta_var size_t offset = 0;
+    @tup_t<@expand(types)*> chunks = @undef;
+
+    for inline @idx(const i, const t : types) {
+        // `@decl_t` is completely unrelated
+        // to c++ `decltype`;
+        //
+        // while in c++ it's useful to declare
+        // a member with the same type of another one,
+        // cxc exposes `@decl_t` to convert a
+        // @info_t when `info.type.kind == cxc.type_kind_t.ctypedef`
+        // into an actual type, just like `int` or `struct { ... }`
+        // see `templates4.cx`
+        chunks[i] = (@decl_t(t))(m + offset);
+        offset += sizes[i];
+    }
+
+    return chunks;
+}
+
+@test "joint_malloc" {
+    const length = 10;
+
+    // i've got 3 arrays of 10 elements each
+    // but only one of them is a real malloc
+    // (the first one is always the main allocation)
+    @unpack(
+        const a,
+        const b,
+        const c,
+    ) = joint_malloc<@tup(
+        @info(int32_t), @info(uint8_t), @info(float64_t)
+    )>(length);
+}

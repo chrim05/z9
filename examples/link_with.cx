@@ -18,7 +18,7 @@ int add(int a, int b);
 
 // and what about cross compilation?
 
-// meta block is executed at compile time
+// meta block is executed at comtime
 @meta {
     // also here you can see the new switch syntax
     switch (@target_cpu) {

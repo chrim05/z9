@@ -16,7 +16,7 @@ const len = (size_t)10;
 
 // TODO: design this in a better way
 @test "joint malloc" {
-    @unpack(auto a, auto b) = @joint<int32_t, int8_t>(
+    @unpack(const a, const b) = @joint<int32_t, int8_t>(
         len, mem.alloc_array
     );
     @defer mem.drop(a);
