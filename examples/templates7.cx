@@ -1,0 +1,16 @@
+@info_t build_multi_array_type<@info_t t>() {
+    return @info(struct {
+        // TODO
+    });
+}
+
+typedef<typedef struct_t> @decl_t(
+    @meta(build_multi_array_type<@info(struct_t)>())
+) multi_t;
+
+@test "1" {
+    multi_t<struct { int x; char y; }> m = {
+        { .x = 0, .y = 1 },
+        { .x = 1, .y = 2 },
+    };
+}

@@ -6,58 +6,58 @@
 @import cxc;
 
 @test "1" {
-  int a = 10;
-  @expect(@info(a).type.kind == cxc.type_kind_t.cint);
-  @expect(@info(a).type.kind == @type_info(int).kind);
+    int a = 10;
+    @expect(@info(a).type.kind == cxc.type_kind_t.cint);
+    @expect(@info(a).type.kind == @info(int).kind);
 
-  // in this case, `b` is not just an
-  // immutable variable, it works like
-  // a constexpr (called meta value)
-  const b = 20;
-  // so this means we can access its value
-  // at comtime
-  @expect(@info(b).value == 20);
-  // this produces an error for non-meta
-  // values
-  //
-  // error: `a` has no meta value
-  @expect(@info(a).value() == 10);
+    // in this case, `b` is not just an
+    // immutable variable, it works like
+    // a constexpr (called meta value)
+    const b = 20;
+    // so this means we can access its value
+    // at comtime
+    @expect(@info(b).value == 20);
+    // this produces an error for non-meta
+    // values
+    //
+    // error: `a` has no meta value
+    @expect(@info(a).value() == 10);
 }
 
 @test "2" {
-  // you can produce types at comtime
-  // and use them to declare members
-
-  typedef struct { int a; int b; } my_t;
-
-  my_t a = @undef;
-
-  // `@info` produces a meta instance
-  // of the struct `@info_t` which is
-  // a shorthand for `cxc.info_t`
-  const i = @info(a);
-  @expect(@info(i).type == @info(@info_t).value);
-  @expect(@info(@info_t).value == cxc.info_t);
-
-  const name = i.name;
-  @expect(name == "a");
-
-  // a meta value `false` inside `expect` raises
-  // comtime error, otherwise nothing is emitted
-  // by the codegen, for the runtime;
-  //
-  // here you can get the information of a symbol
-  // and play with it
-  @expect(i.type == @info(my_t).value);
-  @expect(
-    @info(my_t).type.kind == cxc.type_kind_t.ctypedef
-  );
-
-  // then, you can just reconvert the type
-  // infos to a type for a decl
-
-  // the same of `my_t b = @undef;`
-  @decl_t(i.type) b = @undef;
-  // the same of `my_t c = @undef;`
-  @decl_t(@info(my_t)) c = @undef;
+    // you can produce types at comtime
+    // and use them to declare members
+  
+    typedef struct { int a; int b; } my_t;
+  
+    my_t a = @undef;
+  
+    // `@info` produces a meta instance
+    // of the struct `@info_t` which is
+    // a shorthand for `cxc.info_t`
+    const i = @info(a);
+    @expect(@info(i).type == @info(@info_t).value);
+    @expect(@info(@info_t) == @info(cxc.info_t));
+  
+    const name = i.name;
+    @expect(name == "a");
+  
+    // a meta value `false` inside `expect` raises
+    // comtime error, otherwise nothing is emitted
+    // by the codegen, for the runtime;
+    //
+    // here you can get the information of a symbol
+    // and play with it
+    @expect(i.type == @info(my_t).value);
+    @expect(
+        @info(my_t).type.kind == cxc.type_kind_t.ctypedef
+    );
+  
+    // then, you can just reconvert the type
+    // infos to a type for a decl
+  
+    // the same of `my_t b = @undef;`
+    @decl_t(i.type) b = @undef;
+    // the same of `my_t c = @undef;`
+    @decl_t(@info(my_t)) c = @undef;
 }
