@@ -22,7 +22,7 @@ matherr_t checked_sum(int32_t a, int32_t b, int32_t* result) {
     if (sum > int32_t.max)
         return matherr_t.overflow;
 
-    if (sum < int32_t.min) {
+    if (sum < int32_t.min)
         return matherr_t.underflow;
 
     *result = (int32_t)sum;

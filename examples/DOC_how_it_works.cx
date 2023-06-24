@@ -8,16 +8,18 @@
 //
 // for example:
 void main() {
-    a* b; // is this decl or binexpr?
-          // tldr: depends whether `a` is type or not
+    a* b;       // is this decl or binexpr?
+
+    (a)*b;      // is this `a * b` or cast `b` to type `a`?
+
+    a<b>(c);    // is this `((a < b) > (c))`
+                // or just a templated function call?
+
+    // tldr: depends whether `a` is type or not
 }
 
 // (in a normal c compiler) you must know what `a` is
-// in order to correctly parse the statement
-// as a binary expression (mul) or a variable declaration.
-// this means that the parser must know the declaration of a,
-// if `a` was previously typedef-fed then that's clearly a declaration
-// otherwise a binary expression would be the most suitable syntax node.
+// in order to correctly parse the statements;
 //
 // but this would require a symbol table at parsing time, and we don't want it
 // otherwise forward declarations will be necessary again.

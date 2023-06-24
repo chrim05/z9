@@ -196,10 +196,13 @@ class Lexer:
     # skipping `@`
     self.skip()
     
-    value: Token = self.collect_word_token(loc)
-    value.kind = 'meta_id'
+    word: Token = self.collect_word_token(loc)
+    word.kind = 'meta_id'
 
-    return value
+    if word.value not in META_TAGS:
+      self.unit.report('unknown meta tag', word.loc)
+
+    return word
 
   def next_token(self) -> Token | None:
     self.eat_white()

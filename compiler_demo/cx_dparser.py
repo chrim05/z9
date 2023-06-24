@@ -2,10 +2,6 @@ from data import *
 from typing import Callable, cast
 from json import dumps
 
-META_DIRECTIVES = [
-  'use_feature',
-]
-
 CLASS_SPECS = (
   'typedef', 'extern', 'static',
   '_Thread_local', 'auto', 'register'
@@ -174,18 +170,27 @@ class DParser:
       * [declaration-list]
     '''
 
-    if \
-      not isinstance(declarator, SyntaxNode) or \
-        declarator.syntax_name != 'ParameterListDeclarator':
+    if not isinstance(declarator, SyntaxNode):
       return None
 
-    direct_decl = declarator.data['declarator']
+    if declarator.syntax_name == 'ParameterListDeclarator':
+      actual_decl = declarator.data['declarator']
+    elif (
+      declarator.syntax_name == 'Declarator' and
+      isinstance(dd := declarator.data['direct_declarator'], SyntaxNode) and
+      dd.syntax_name == 'ParameterListDeclarator'
+    ):
+      actual_decl = dd
+    else:
+      return None
 
     # it may be a function pointer, this means no body is involved
-    # but it must be interpreted as a type
-    if \
-      isinstance(direct_decl, SyntaxNode) and \
-        direct_decl.data['pointer'] is not None:
+    # but it must be interpreted as a declaration
+    if (
+      isinstance(actual_decl, SyntaxNode) and
+      actual_decl.syntax_name == 'Declarator' and
+      actual_decl.data['pointer'] is not None
+    ):
       return None
 
     mmod: Token | None = None
@@ -484,6 +489,9 @@ class DParser:
 
       return TypeBuiltinNode(name, tag.loc)
 
+    if self.cur.kind == 'meta_id' and self.cur.value in META_TYPES:
+      return self.expect_token('meta_id')
+
     builtin = self.token(
       'void', 'char', 'short',
       'int', 'long', 'float',
@@ -501,6 +509,7 @@ class DParser:
     '''
 
     if (spec_kw := self.token('enum')) is not None:
+      is_enum_struct = self.token('struct')
       tname = self.identifier()
       body = self.enumerator_list()
 
@@ -511,6 +520,7 @@ class DParser:
         )
 
       return SyntaxNode(spec_kw.loc, 'EnumSpecifier', {
+        'is_struct': is_enum_struct,
         'name': tname,
         'body': body,
       })

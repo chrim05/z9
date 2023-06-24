@@ -18,7 +18,7 @@
 // this variant, instead, limits the feature
 // to the block
 @use_feature abcd, efgh {
-
+    
 }
 
 // main can now be void,

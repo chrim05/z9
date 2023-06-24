@@ -1,12 +1,27 @@
 from typing import Callable, Any
 
-INDENT_STEP: str = '  '
+META_TYPES = [
+  'this_t', 'info_t',
+  'builtin_t'
+]
+
+META_DIRECTIVES = [
+  'use_feature',
+]
+
+META_TAGS = META_DIRECTIVES + META_TYPES + [
+  'this'
+]
+
+INDENT_DEPTH: int = 2
+INDENT_STEP: str = ' ' * INDENT_DEPTH
+
 indent_level: int = 0
 
 def indent() -> str:
   return INDENT_STEP * indent_level
 
-def idented_line() -> str:
+def indented_line() -> str:
   return f'\n{indent()}'
 
 def indented_repr(
@@ -15,7 +30,7 @@ def indented_repr(
   edges: tuple[str, str]
 ) -> str:
   global indent_level
-  indent_level += 2
+  indent_level += INDENT_DEPTH
 
   s: str = ''
   sep: str = ','
@@ -24,10 +39,10 @@ def indented_repr(
     if i == len(collection) - 1:
       sep = ''
 
-    s += f'{idented_line()}{repr_fn(e)}{sep}'
+    s += f'{indented_line()}{repr_fn(e)}{sep}'
 
-  indent_level -= 2
-  return f'{edges[0]}{s}{idented_line()}{edges[1]}'
+  indent_level -= INDENT_DEPTH
+  return f'{edges[0]}{s}{indented_line()}{edges[1]}'
 
 class Loc:
   def __init__(self, filepath: str, line: int, col: int) -> None:
@@ -58,6 +73,9 @@ class Token(Node):
     self.value: object = value
 
   def __repr__(self) -> str:
+    if self.kind == self.value:
+      return repr(self.value)
+
     return f'{self.kind}({repr(self.value)})'
 
 class PoisonedNode(Node):
@@ -142,6 +160,9 @@ class UseFeatureDirective(Node):
     if self.body is None:
       return f'UseFeatureDirective{repr(self.features)}'
 
+    global indent_level
+    indent_level += INDENT_DEPTH
+
     features = indented_repr(
       self.features, repr, ("[", "]")
     )
@@ -150,8 +171,11 @@ class UseFeatureDirective(Node):
     body = repr(self.body)
     body = f'body: {body}'
 
+    il = indented_line()
+    indent_level -= INDENT_DEPTH
+
     return \
-      f'UseFeatureDirective({idented_line()}{features},{idented_line()}{body})'
+      f'UseFeatureDirective({il}{features},{il}{body}{indented_line()})'
 
 class TypeBuiltinNode(Node):
   def __init__(self, name: str, loc: Loc) -> None:

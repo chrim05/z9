@@ -1,4 +1,4 @@
-/*
+// /*
 #include <stdint.h>
 
 const uint* const main(int, short);
@@ -46,9 +46,13 @@ const k* x[2 * 2];
 
 // abstract declarator
 void foo(int(*bar)(void const*));
-*/
 
 int (*x)(int a);
 int y(int a);
 int *z;
 int w;
+
+char* nth(size_t index) {
+    return &.buffer[index];
+}
+// */
