@@ -4,22 +4,37 @@
 // `@import` containerizes all top level declarations
 // of a file; another thing is that you can't use macros
 // of that file because importing is done after preprocessing
-@import "local.h" lib;
+@import lib = "local.h";
 // importing from the `packages` compiler folder
-@import pkg("some_library") lib2;
-// short hand for `@import pkg("some_library") some_library;`
+// into an aliased container
+@import lib2 = some_library;
+// short hand for `@import some_library = some_library;`
 @import some_library;
+
+@import sl = some_library;
 
 @test "lib" {
     const x = lib.foo();
-    const y = lib2.bar();
+    const y = lib2.baz();
     const z = some_library.baz();
+    const w = sl.baz();
 }
 
-@import "local.h" -> {
-    decl_inside_local,
-    another_one -> alias
-};
+// importing only some of the symbols
+@import { info_t, version } = cxc;
 
-@import cxc -> *;
-@import url("https://some_host.com/some_header.h") -> *;
+// the same, but with more symbols
+@import {
+    parser_t,
+    token_kind_t,
+    compile_to_llbc
+} = cxc;
+
+@import * = url("https://some_host.com/some_header.h");
+// remember, you can't use macros declared inside stdio.h
+// so importing std stuff actually makes no much sense
+@import stdio = std("stdio.h");
+
+@test "stdio continerized" {
+    stdio.printf("hello world! z%d\n", 9);
+}

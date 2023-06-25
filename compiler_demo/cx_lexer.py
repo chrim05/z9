@@ -175,7 +175,7 @@ class Lexer:
 
       if c == '\\':
         self.skip()
-        c = self.escape_char(c, loc)
+        c = self.escape_char(self.cur, loc)
 
       value += c
       self.skip()
@@ -192,9 +192,15 @@ class Lexer:
       loc
     )
 
-  def collect_meta_id(self, loc: Loc) -> Token:
+  def collect_meta_id_or_str(self, loc: Loc) -> Token:
     # skipping `@`
     self.skip()
+
+    if self.has_char() and self.cur == '"':
+      s: Token = self.collect_stringed_token(loc)
+      s.kind = 'meta_str'
+      
+      return s
     
     word: Token = self.collect_word_token(loc)
     word.kind = 'meta_id'
@@ -217,7 +223,7 @@ class Lexer:
     elif self.cur in ["'", '"']:
       token = self.collect_stringed_token(self.loc)
     elif self.cur == '@':
-      token = self.collect_meta_id(self.loc)
+      token = self.collect_meta_id_or_str(self.loc)
     else:
       token = self.collect_punctuation_token(self.loc)
 

@@ -6,7 +6,8 @@ META_TYPES = [
 ]
 
 META_DIRECTIVES = [
-  'use_feature',
+  'use_feature', 'test',
+  'import',
 ]
 
 META_TAGS = META_DIRECTIVES + META_TYPES + [
@@ -163,19 +164,18 @@ class UseFeatureDirective(Node):
     global indent_level
     indent_level += INDENT_DEPTH
 
+    il = indented_line()
     features = indented_repr(
       self.features, repr, ("[", "]")
     )
-    features = f'features: {features}'
+    features = f'{il}features: {features}'
 
-    body = repr(self.body)
-    body = f'body: {body}'
+    body = f'{il}body: {repr(self.body)}'
 
-    il = indented_line()
     indent_level -= INDENT_DEPTH
 
     return \
-      f'UseFeatureDirective({il}{features},{il}{body}{indented_line()})'
+      f'UseFeatureDirective({features},{body}{indented_line()})'
 
 class TypeBuiltinNode(Node):
   def __init__(self, name: str, loc: Loc) -> None:
@@ -198,3 +198,86 @@ class DeclSpecNode(Node):
 
   def __repr__(self) -> str:
     return f'DeclSpecNode({repr(self.name)})'
+
+class GenericImportDirective(Node):
+  '''
+  this is only used internally for code reused, (for inheritance purpose);
+  never allocated by the parser
+  '''
+
+  def __init__(self, kind: str, to_import: Token, loc: Loc) -> None:
+    super().__init__(loc)
+
+    # manual(std, url) auto(pkg, local)
+    self.kind: str = kind
+    self.to_import: Token = to_import
+
+class AliasedImportDirective(GenericImportDirective):
+  '''
+  @import some = ...;
+  '''
+
+  def __init__(self, alias: Token, kind: str, to_import: Token, loc: Loc) -> None:
+    super().__init__(kind, to_import, loc)
+
+    self.alias: Token = alias
+
+  def __repr__(self) -> str:
+    return \
+      f'AliasedImportDirective(alias: {self.alias}, ' \
+      f'kind: {repr(self.kind)}, to_import: {self.to_import})'
+
+class FullImportDirective(GenericImportDirective):
+  '''
+  @import * = ...;
+  '''
+
+  def __repr__(self) -> str:
+    return \
+      f'FullImportDirective(kind: {repr(self.kind)}, to_import: {self.to_import})'
+
+class PartialImportDirective(GenericImportDirective):
+  '''
+  @import {...} = ...;
+  '''
+
+  def __init__(
+    self,
+    names: list[tuple[Token, Token]],
+
+    kind: str, to_import: Token, loc: Loc
+  ) -> None:
+    super().__init__(kind, to_import, loc)
+
+    self.names: list[tuple[Token, Token]] = names
+
+  def __repr__(self) -> str:
+    return \
+      f'PartialImportDirective(names: {self.names}, ' \
+      f'kind: {repr(self.kind)}, to_import: {self.to_import})'
+
+class TestDirective(Node):
+  def __init__(self, desc: str, body: CompoundNode, loc: Loc) -> None:
+    super().__init__(loc)
+
+    self.desc: str = desc
+    self.body: CompoundNode = body
+
+  def __repr__(self) -> str:
+    global indent_level
+    indent_level += INDENT_DEPTH
+
+    il = indented_line()
+    desc = f'{il}desc: {repr(self.desc)}'
+    body = f'{il}body: {repr(self.body)}'
+
+    indent_level -= INDENT_DEPTH
+
+    return \
+      f'TestDirective({desc},{body}{indented_line()})'
+
+class ParsingError(Exception):
+  pass
+
+class UnreachableError(Exception):
+  pass

@@ -1,5 +1,5 @@
 from data import *
-from typing import Callable, cast
+from typing import Callable, cast, NoReturn
 from json import dumps
 
 CLASS_SPECS = (
@@ -14,13 +14,6 @@ TYPE_QUALS = (
   'volatile', '_Atomic',
   '_Cdecl'
 )
-
-'''
-TODO:
-  * i need to clean the produced tree,
-    because it's too verbose, especially
-    with declarators
-'''
 
 def recoverable(func):
   '''
@@ -407,8 +400,9 @@ class DParser:
     return self.token('id', 'meta_id')
 
   @recoverable
-  def struct_or_union_declaration_list(
+  def struct_or_union_declaration_list_into(
     self,
+    body: MultipleNode,
     expect_braces: bool,
     allow_method_mods: bool
   ) -> MultipleNode | None:
@@ -418,8 +412,6 @@ class DParser:
       # this is just for the location,
       # we actually don't need the cur token
       opener = self.cur
-
-    body = MultipleNode(opener.loc)
 
     while True:
       if not self.has_token():
@@ -440,6 +432,18 @@ class DParser:
       body.nodes.append(edecl)
 
     return body
+
+  @recoverable
+  def struct_or_union_declaration_list(
+    self,
+    expect_braces: bool,
+    allow_method_mods: bool
+  ) -> MultipleNode | None:
+    return self.struct_or_union_declaration_list_into(
+      MultipleNode(self.cur.loc),
+      expect_braces,
+      allow_method_mods,
+    )
 
   @recoverable
   def comma_enumerator(self) -> Node | None:
@@ -797,6 +801,93 @@ class DParser:
 
     return d
 
+  def parse_import_details(self, loc: Loc) -> tuple[str, Token, Loc]:
+    if (ident := self.token('id')) is not None:
+      if self.token('(') is not None:
+        to_import = self.expect_token('str')
+        self.expect_token(')')
+        return (str(ident.value), to_import, loc)
+
+      return ('pkg', ident, loc)
+
+    if (path := self.token('str')) is not None:
+      return ('local', path, loc)
+
+    self.raise_malformed_import(loc)
+
+  def parse_aliased_import(self, alias: Token, loc: Loc) -> AliasedImportDirective:
+    details: tuple[str, Token, Loc]
+    if self.token('=') is not None:
+      details = self.parse_import_details(loc)
+    else:
+      details = ('pkg', alias, loc)
+
+    self.expect_token(';')
+    return AliasedImportDirective(alias, *details)
+
+  def parse_full_import(self, loc: Loc) -> FullImportDirective:
+    self.expect_token('=')
+    details = self.parse_import_details(loc)
+    self.expect_token(';')
+
+    return FullImportDirective(*details)
+
+  def raise_malformed_import(self, loc: Loc) -> NoReturn:
+    self.unit.report('import directive is malformed', loc)
+    raise ParsingError()
+
+  def parse_name_of_partial_import(self) -> tuple[Token, Token]:
+    alias = self.expect_token('id')
+
+    if self.token('=') is not None:
+      to_import = self.expect_token('id')
+    else:
+      to_import = alias
+
+    return (alias, to_import)
+
+  def parse_partial_import(self, loc: Loc) -> PartialImportDirective:
+    if self.token('{') is None:
+      self.raise_malformed_import(loc)
+
+    names: list[tuple[Token, Token]] = [
+      self.parse_name_of_partial_import()
+    ]
+
+    while self.token(','):
+      names.append(
+        self.parse_name_of_partial_import()
+      )
+
+    self.expect_token('}')
+    self.expect_token('=')
+    details = self.parse_import_details(loc)
+    self.expect_token(';')
+
+    return PartialImportDirective(names, *details)
+
+  def parse_import(self, loc: Loc) -> GenericImportDirective:
+    if (alias_token := self.token('id')) is not None:
+      return self.parse_aliased_import(alias_token, loc)
+
+    if self.token('*') is not None:
+      return self.parse_full_import(loc)
+
+    return self.parse_partial_import(loc)
+
+  def parse_test(self, loc: Loc) -> TestDirective:
+    desc = str(self.expect_token('str').value)
+    body = self.expect_node(
+      self.collect_compound_statement(),
+      'test directive always wants a body'
+    )
+
+    return TestDirective(
+      desc,
+      cast(CompoundNode, body),
+      loc
+    )
+
   def parse_meta_directive(self) -> Node:
     mdir: Token = self.token('meta_id') # type: ignore[assignment]
 
@@ -804,8 +895,14 @@ class DParser:
       case 'use_feature':
         return self.parse_use_feature(mdir.loc)
 
+      case 'test':
+        return self.parse_test(mdir.loc)
+
+      case 'import':
+        return self.parse_import(mdir.loc)
+
       case _:
-        return PoisonedNode(mdir.loc) # unreachable
+        raise UnreachableError()
 
   def external_declaration(self, is_inside_structunion: bool) -> Node:
     '''
@@ -831,8 +928,9 @@ class DParser:
     # to avoid getting stuck on a token
     # in loop
     if dspecs is None or isinstance(dspecs, PoisonedNode):
+      loc = self.cur.loc
       self.skip()
-      return PlaceholderNode()
+      return PoisonedNode(loc)
 
     if self.token(';') is not None:
       return SyntaxNode(
@@ -845,12 +943,6 @@ class DParser:
       self.declarator(),
       'top level members must have a declarator (such as a name)'
     )
-
-    # to avoid getting stuck on a token
-    # in loop
-    if declarator is None or isinstance(declarator, PoisonedNode):
-      self.skip()
-      return PlaceholderNode()
 
     if (node := self.function_definition(dspecs, declarator, is_inside_structunion)) is None:
       node = cast(SyntaxNode, self.expect_node(
@@ -868,5 +960,8 @@ class DParser:
     if node is not None:
       return node
 
-    self.unit.report(f'unexpected token "{self.cur.kind}", {error_message}', self.cur.loc)
-    return PoisonedNode(self.cur.loc)
+    self.unit.report(
+      f'unexpected token "{self.cur.kind}", {error_message}',
+      self.cur.loc
+    )
+    raise ParsingError()
