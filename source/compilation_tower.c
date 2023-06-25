@@ -69,7 +69,7 @@ void compilation_tower_dparser(compilation_tower_t* c) {
 }
 
 char const* compilation_tower_preprocess_file(compilation_tower_t* c) {
-    char const* const preprocessed_filepath = ".cx";
+    char const* const preprocessed_filepath = ".z9";
 
     char cmd[100];
     snprintf(cmd, sizeof(cmd), "cpp.exe %s %s", c->filepath, preprocessed_filepath);

@@ -1,13 +1,13 @@
-@import cxc;
+@import z9;
 
 @test "compiling files at runtime and jitting them" {
     // the source code is embedding itself
-    const source_code = @embed("compiler_library.cx");
+    const source_code = @embed("compiler_library.z9");
     // a very easy api (compiles the source code down to llvm bit code)
-    // the compilation is not related in any way to `compiler_library.cx`
-    const bicode = cxc.compile_to_llbc(source_code);
+    // the compilation is not related in any way to `compiler_library.z9`
+    const bicode = z9.compile_to_llbc(source_code);
     // launches the main
-    cxc.jit_llbc(bitcode);
+    z9.jit_llbc(bitcode);
 }
 
 @test "compiling files at runtime down to an ast form" {

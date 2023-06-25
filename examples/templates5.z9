@@ -1,21 +1,21 @@
-@import cxc;
+@import z9;
 @import io;
 
 // self source code
-// see `embed.cx`
-const source_code = @embed("templates5.cx");
+// see `embed.z9`
+const source_code = @embed("templates5.z9");
 
 // very powerful at runtime
 void main() {
-    // ast is of type `cxc.cst_t`
+    // ast is of type `z9.cst_t`
     // which is the concrete syntax tree of the source code;
     //
     // the abstract one just represents the syntax structure
     // of the code, the concrete one has all identifiers
     // resolved and all types as well
-    const cst = cxc.compile_to_cst(source_code);
+    const cst = z9.compile_to_cst(source_code);
 
-    // `get_member` returns a `cxc.info_t`
+    // `get_member` returns a `z9.info_t`
     const fn = cst.get_member("main");
     const fn_signature = fn.type;
     const fn_rettype = fn_signature.return_type();
@@ -41,7 +41,7 @@ void main() {
 int foo() { return 0; }
 
 @test "and powerful at comtime as well" {
-    const cst = @meta(cxc.compile_to_cst(source_code));
+    const cst = @meta(z9.compile_to_cst(source_code));
     const fn_rettype = cst.get_member("foo").type.return_type();
 
     // but this time it works, because

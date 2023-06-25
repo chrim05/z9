@@ -13,7 +13,7 @@
 // is not discarded
 
 // and that's why you shouldn't `#include`
-// `.cx` files
+// `.z9` files
 
 // this variant, instead, limits the feature
 // to the block

@@ -3,10 +3,10 @@
 @test "embedding big strings from files at comtime" {
     // (executed at comtime, results in a large string literal)
     // the source code is embedding itself in the source code
-    const source_code = @embed("embed.cx");
+    const source_code = @embed("embed.z9");
 
     io.println("This is the source code of this program:");
-    io.println("```cx");
+    io.println("```z9");
     io.println(source_code);
     io.println("```");
 }

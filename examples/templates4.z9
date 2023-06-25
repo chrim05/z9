@@ -2,12 +2,12 @@
 
 // this is the compiler
 // and it can be used as library
-// see `compiler_library.cx`
-@import cxc;
+// see `compiler_library.z9`
+@import z9;
 
 @test "1" {
     int a = 10;
-    @expect(@info(a).type.kind == cxc.type_kind_t.cint);
+    @expect(@info(a).type.kind == z9.type_kind_t.cint);
     @expect(@info(a).type.kind == @info(int).kind);
 
     // in this case, `b` is not just an
@@ -34,10 +34,10 @@
   
     // `@info` produces a meta instance
     // of the struct `@info_t` which is
-    // a shorthand for `cxc.info_t`
+    // a shorthand for `z9.info_t`
     const i = @info(a);
     @expect(@info(i).type == @info(@info_t).value);
-    @expect(@info(@info_t) == @info(cxc.info_t));
+    @expect(@info(@info_t) == @info(z9.info_t));
   
     const name = i.name;
     @expect(name == "a");
@@ -50,7 +50,7 @@
     // and play with it
     @expect(i.type == @info(my_t).value);
     @expect(
-        @info(my_t).type.kind == cxc.type_kind_t.ctypedef
+        @info(my_t).type.kind == z9.type_kind_t.ctypedef
     );
   
     // then, you can just reconvert the type

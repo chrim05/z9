@@ -1,4 +1,4 @@
-@import cxc -> {
+@import z9 -> {
     type_kind_t
 };
 
@@ -28,7 +28,7 @@ t deserialize_next<typedef t>(
     //              all the meta stuff related to the
     //              type `struct {...}` (the size as well)
     //
-    // see `templates4.cx`
+    // see `templates4.z9`
     const i = @info(t).value();
 
     // when integer or floating

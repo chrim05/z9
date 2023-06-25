@@ -1,8 +1,8 @@
-// also see `link_with.cx`
+// also see `link_with.z9`
 
 // executed at comtime
 @meta {
-    if (@filename == "meta.cx")
+    if (@filename == "meta.z9")
         // you should be able to use
         // either `printf` or `io.println`
         // but this is shorter to type
@@ -17,8 +17,8 @@ void main() {
                   // then `y` will be a meta const
 
     // in normal c compilers, `x` and `y` would be immutable variables
-    // but cxc treats them as constexprs, because their initializers
-    // are constexpr (cxc calls them `meta values`)
+    // but z9 treats them as constexprs, because their initializers
+    // are constexpr (z9 calls them `meta values`)
 
     // here `k` is not meta const, but just
     // an immutable variable

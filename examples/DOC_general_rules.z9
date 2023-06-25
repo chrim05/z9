@@ -11,7 +11,7 @@ auto x = ..
 // so this will be a compiler error, suggesting to use `const x = ..` instead
 // because `auto` would be used for type inferred variables and `const <id> =`
 // for type inferred constants (constants may be constexprs if the initializer
-// is constexpr, cxc calls them "meta values")
+// is constexpr, z9 calls them "meta values")
 //
 // about retro compatibility with implicit int `const x;`, `x` would be `int`
 // well the standard of c99 says it has been removed; it wouldn't anyway;

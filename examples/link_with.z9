@@ -3,7 +3,7 @@
 const some_meta_var = "lib.a";
 @link_with(some_meta_var);
 
-// file compiled with: `cxc link_with.cx`
+// file compiled with: `z9 link_with.z9`
 // so you don't need to add other flags to link
 // with the object
 @link_with("clang_object.o");

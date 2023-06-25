@@ -1,5 +1,5 @@
 // this is an idea about how to implement
-// a potential struct-of-arrays in cx
+// a potential struct-of-arrays in z9
 //
 // the idea is to have a builtin type for that
 // because i'm not even sure it would be possible to implement

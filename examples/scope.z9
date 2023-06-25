@@ -7,11 +7,11 @@
 // you can use `@defer` on them, but remember to
 // implement `drop` function for your structs
 @test "scoped file streams" {
-    const content = io.read_all_file_into_temp("scope.cx");
+    const content = io.read_all_file_into_temp("scope.z9");
 
     // will be allocated at the first use
     auto storage = storage_t.new();
     @scope storage; // short hand for `@defer storage.drop()`
 
-    const content2 = io.read_all_file(&storage, "scope.cx");
+    const content2 = io.read_all_file(&storage, "scope.z9");
 }

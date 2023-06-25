@@ -4,7 +4,7 @@
 // (it actually does a lot of other things
 //  such as forcing to convert variables to const
 //  when not used as mutable.
-//  see `about_strict_rules.cx`)
+//  see `about_strict_rules.z9`)
 @use_feature strict_rules;
 
 typedef enum struct {

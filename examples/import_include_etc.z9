@@ -21,14 +21,14 @@
 }
 
 // importing only some of the symbols
-@import { info_t, version } = cxc;
+@import { info_t, version } = z9;
 
 // the same, but with more symbols
 @import {
     parser_t,
     token_kind_t,
     compile_to_llbc
-} = cxc;
+} = z9;
 
 @import * = url("https://some_host.com/some_header.h");
 // remember, you can't use macros declared inside stdio.h

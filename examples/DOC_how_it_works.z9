@@ -47,7 +47,7 @@ typedef long long a;
 // the ast will look like this (pseudo code for representing the ast node):
 // (note that no symbol table is used here to parse this correctly)
 (file_node_t) {
-    .filename = "DOC_how_it_works.cx",
+    .filename = "DOC_how_it_works.z9",
     .decls = {
         (fn_decl_node_t) {
             .return_type = primitive_type(void),

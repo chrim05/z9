@@ -1,9 +1,9 @@
-# the official repository for the cx compiler
+# the official repository for the z9 compiler
 **please report ANYthing you think is inappropriate, since this project is run by a young guy, and experienced developers' suggestions would be very helpful**
 
-(please use `.cx` extension when writing c code which can only be compiled by cxc)
+(please use `.z9` extension when writing c code which can only be compiled by z9)
 
-the point of cxc is to support the majority of the actual c99 code, trying to also add modern features (read below for the compiler's goals)
+the point of z9 is to support the majority of the actual c99 code, trying to also add modern features (read below for the compiler's goals)
 
 several new ideas introduced are inherited from more mature projects, such as the circle compiler, zig and nim;
 

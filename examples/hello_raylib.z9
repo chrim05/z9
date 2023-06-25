@@ -5,7 +5,7 @@
 // exposes useful macros, that can't work
 // with modules;
 // so we include it, but you can install the package
-// with `cxc install raylib`
+// with `z9 install raylib`
 #include <packages/raylib/raylib.h>
 
 // this tag enqueues the package's static library

@@ -43,10 +43,10 @@
         //
         // while in c++ it's useful to declare
         // a member with the same type of another one,
-        // cxc exposes `@decl_t` to convert a
-        // @info_t when `info.type.kind == cxc.type_kind_t.ctypedef`
+        // z9 exposes `@decl_t` to convert a
+        // @info_t when `info.type.kind == z9.type_kind_t.ctypedef`
         // into an actual type, just like `int` or `struct { ... }`
-        // see `templates4.cx`
+        // see `templates4.z9`
         chunks[i] = (@decl_t(t))(m + offset);
         offset += sizes[i];
     }

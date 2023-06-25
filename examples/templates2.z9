@@ -29,9 +29,9 @@ typedef<typedef t> struct {
 } vec_t;
 
 // output:
-// [templates.cx:47:9] @dbg(n) -> 0
-// [templates.cx:47:9] @dbg(n) -> 2
-// [templates.cx:47:9] @dbg(n) -> 3
+// [templates.z9:47:9] @dbg(n) -> 0
+// [templates.z9:47:9] @dbg(n) -> 2
+// [templates.z9:47:9] @dbg(n) -> 3
 void main() {
     // todo: explain how `from_len`, `nth`, 'len'
     //       are used to:

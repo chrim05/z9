@@ -47,7 +47,7 @@ class TranslationUnit:
     self.warnings.append((message, loc))
 
   def lex(self) -> None:
-    from cx_lexer import Lexer
+    from z9_lexer import Lexer
     from data import Token
 
     if self.failed:
@@ -65,7 +65,7 @@ class TranslationUnit:
       self.tokens.append(token)
 
   def dparse(self) -> None:
-    from cx_dparser import DParser
+    from z9_dparser import DParser
     from data import MultipleNode
 
     if self.failed:

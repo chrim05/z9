@@ -15,13 +15,13 @@
     }
 }
 
-// please don't use this std header in cx
+// please don't use this std header in z9
 // i exposed a modernized version of it in `pkg("io")`
 // import it using `@import io;`
 #include <stdio.h>
 
 @test "defer with scoped items" {
-    const stream = fopen("defer.cx", "r");
+    const stream = fopen("defer.z9", "r");
     @defer fclose(stream);
 
     // do something with the stream
