@@ -83,6 +83,4 @@ char* nth(size_t index) {
 } = "local.h";
 */
 
-void main() {
-    
-}
+char main();

@@ -72,7 +72,7 @@ class TranslationUnit:
       return
 
     g = MrGen(self)
-    self.tab: SemaTable = SemaTable()
+    self.tab: SemaTable = SemaTable(self)
 
     g.gen_whole_unit()
 

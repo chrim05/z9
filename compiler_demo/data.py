@@ -58,6 +58,9 @@ class Node:
   def __init__(self, loc: Loc) -> None:
     self.loc: Loc = loc
 
+  def is_empty_decl(self) -> bool:
+    return isinstance(self, SyntaxNode) and self.syntax_name == 'EmptyDeclaration'
+
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
 
@@ -114,6 +117,11 @@ class SyntaxNode(Node):
     
     self.syntax_name: str = syntax_name
     self.data: dict[str, Node | None] = data
+
+  def __getitem__(self, key: Any) -> Node | None:
+    assert isinstance(key, str)
+
+    return self.data[key]
 
   def __repr__(self) -> str:
     if len(self.data) == 1:
@@ -282,5 +290,79 @@ class ParsingError(Exception):
 class UnreachableError(Exception):
   pass
 
-class SemaTable:
+class Typ:
+  def __init__(self) -> None:
+    self.is_const: bool = False
+    self.is_signed: bool = True
+
+  '''
+  def inherit_from(self, typ: Typ) -> Typ:
+    self.__dict__.update(typ.__dict__)
+    return self
+  '''
+
+  def __repr__(self) -> str:
+    r = ''
+
+    if self.is_const:
+      r += 'const '
+
+    if not self.is_signed:
+      r += 'unsigned '
+
+    return r
+
+class IntTyp(Typ):
+  def __init__(self, kind: str) -> None:
+    super().__init__()
+    self.kind: str = kind
+
+  def __repr__(self) -> str:
+    if self.kind == 'longlong':
+      return 'long long'
+
+    return f'{super().__repr__()}{self.kind}'
+
+class VoidTyp(Typ):
+  def __init__(self) -> None:
+    pass
+
+  def __repr__(self) -> str:
+    return 'void'
+
+class PointerTyp(Typ):
+  def __init__(self, pointee: Typ) -> None:
+    self.pointee: Typ = pointee
+
+  def __repr__(self) -> str:
+    # TODO: add pointer qualifiers
+    return f'{self.pointee}*'
+
+class PoisonedTyp(Typ):
+  def __init__(self) -> None:
+    pass
+
+  def __repr__(self) -> str:
+    return '?'
+
+class Val:
+  def __init__(self, typ: Typ, value: object) -> None:
+    self.typ: Typ = typ
+    self.value: object = value
+
+class Symbol:
   pass
+
+class SemaTable:
+  def __init__(self, unit) -> None:
+    from unit import TranslationUnit
+
+    self.unit: TranslationUnit = unit
+    self.members: dict[str, Symbol | Node] = {}
+
+  def declare(self, name: str, value: Symbol | Node, loc: Loc) -> None:
+    if name in self.members:
+      self.unit.report(f'name "{name}" already declared', loc)
+      return
+
+    self.members[name] = value

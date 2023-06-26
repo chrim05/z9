@@ -11,7 +11,7 @@ typedef<typedef t> struct {
         const capacity = length * 2;
 
         return (@this_t) {
-            .buffer   = mem.alloc_array(t, capacity),
+            .buffer   = mem.alloc_array<t>(capacity),
             .capacity = capacity,
             .length   = length,
         };
@@ -22,7 +22,7 @@ typedef<typedef t> struct {
     }
 
     void drop() {
-        mem.drop(t, .buffer);
+        mem.drop<t>(.buffer);
     }
 
     size_t len() const { return .length; }
@@ -40,7 +40,7 @@ void main() {
     //       * iter the item in foreach
 
     vec_t<int32_t> numbers = { 1, 2, 3 };
-    @defer numbers.drop();
+    @scope numbers;
 
     numbers[0] = numbers[1] - 2;
 

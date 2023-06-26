@@ -74,15 +74,9 @@ typedef long long a;
 // problems with this solution (feel free to fill the list as you want):
 // ..
 
-// how do imports work?
+// what about imports
 
 @import io;
-// remember, this is short hand for
-@import pkg("io") io; // the compiler will raise comtime error
-                      // if the module name and the alias for that module
-                      // are the same id, to encourage you to have a single
-                      // way to do it; this syntax is more suitable for cases like this:
-                                       @import pkg("io") inout;
 
 // remember that you can't use macros defined in a module,
 // because the preprocessor operates on files, not on module.

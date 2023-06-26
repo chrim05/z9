@@ -33,8 +33,8 @@ typedef struct {
     }
 
     void showcase() {
-        // just to show that corvo also exposes
-        // a tag for current instance, and it's type
+        // just to show that z9 also exposes
+        // a tag for current instance, and its type as well
         @this_t this = @this;
     }
 } cpu_t;

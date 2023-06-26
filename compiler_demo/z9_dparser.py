@@ -15,6 +15,14 @@ TYPE_QUALS = (
   '_Cdecl'
 )
 
+TYPE_SPECS = (
+  'void', 'char', 'short',
+  'int', 'long', 'float',
+  'double', 'signed',
+  'unsigned', '_Bool',
+  '_Complex', '_Imaginary'
+)
+
 def recoverable(func):
   '''
   this is a decorator for parsing methods of DParser;
@@ -496,13 +504,7 @@ class DParser:
     if self.cur.kind == 'meta_id' and self.cur.value in META_TYPES:
       return self.expect_token('meta_id')
 
-    builtin = self.token(
-      'void', 'char', 'short',
-      'int', 'long', 'float',
-      'double', 'signed',
-      'unsigned', '_Bool',
-      '_Complex', '_Imaginary'
-    )
+    builtin = self.token(*TYPE_SPECS)
 
     if builtin is not None:
       return builtin
