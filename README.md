@@ -7,7 +7,7 @@
   <h3 align="center">The z9 Compiler</h3>
 
   <p align="center">
-    Experimental c99 compiler. Experimentally attempts to bring modern features to c
+    Experimental c99 compiler. Attempts to bring modern features to c
     <br />
     <br />
     <a href="https://github.com/crim4/z9/tree/main/docs"><strong>Explore the docs »</strong></a>
