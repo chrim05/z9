@@ -69,10 +69,10 @@ but maybe i can write a minimal c99 compiler and extend it(?) i'll try my best.
 * tags, `@name` can be a new way to do something, for example `@include_once "..."` or `@execute_at_compile_time(...)` or `@defer` etc..
 * members don't need to be forward declared:
 ```c
-// int add(int a, int b); -> this is not necessary anymore, neither with typedefs
+void   main()                  { (void)add(1, 2); }
+uint_t add(uint_t a, uint_t b) { return a + b;    }
 
-int main() { return add(1, 2); }
-int add(int a, int b) { return a + b; }
+typedef int uint_t;
 ```
 * a kind operator overloading
 * templates
