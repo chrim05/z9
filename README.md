@@ -68,9 +68,9 @@ but maybe i can write a minimal c99 compiler and extend it(?) i'll try my best.
 * 90% compatible with existing code
 * tags, `@name` can be a new way to do something, for example `@include_once "..."` or `@execute_at_compile_time(...)` or `@defer` etc..
 * members don't need to be forward declared:
-```c
-void   main()                  { (void)add(1, 2); }
-uint_t add(uint_t a, uint_t b) { return a + b;    }
+```c++
+uint_t main() { (void)add(1, 2); }
+uint_t add(uint_t a, uint_t b) { return a + b; }
 
 typedef int uint_t;
 ```
