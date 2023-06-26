@@ -7,7 +7,7 @@
   <h3 align="center">The z9 Compiler</h3>
 
   <p align="center">
-    A personal experimental c99 extended compiler
+    Experimental c99 compiler. Experimentally attempts to bring modern features to c
     <br />
     <br />
     <a href="https://github.com/crim4/z9/tree/main/docs"><strong>Explore the docs »</strong></a>
@@ -36,6 +36,8 @@ the point of z9 is to support the majority of the actual c99 code (mainly to all
 several ideas introduced are inherited from mature projects, such as the circle compiler, zig and c++;
 
 some detail comes from old little projects of mine
+
+**note:** this language is hightly inspired by the circle compiler project, and zig as well.
 
 # why (just a personal experimental project)
 
