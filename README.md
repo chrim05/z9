@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://www.flaticon.com/free-icons/devil" title="devil icons">
-    <img src="misc/icon_alt.png" alt="Logo" width="100" height="100">
+    <img src="misc/icon_alt.png" alt="Logo" width="300" height="300">
   </a>
 
   <h3 align="center">The z9 Compiler</h3>
@@ -74,3 +74,4 @@ int add(int a, int b) { return a + b; }
 * const can work as constexpr (called meta value) when the initializer is constexpr (a meta value)
 * compile time code execution
 * compile time code execution can work as small build script with simple cases
+* compile time type introspection + a little bit at runtime too, but limited
