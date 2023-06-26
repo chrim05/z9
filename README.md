@@ -4,7 +4,7 @@
     <img src="misc/icon_alt.png" alt="Logo" width="300" height="300">
   </a>
 
-  <b><h1 align="center">The z9 Compiler</h3></b>
+  <b><h3 align="center">The z9 Compiler</h3></b>
 
   <p align="center">
     Experimental c99 compiler. Attempts to bring modern features to c
