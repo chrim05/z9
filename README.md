@@ -4,7 +4,7 @@
     <img src="misc/icon_alt.png" alt="Logo" width="300" height="300">
   </a>
 
-  <h3 align="center">The z9 Compiler</h3>
+  <b><h1 align="center">The z9 Compiler</h3></b>
 
   <p align="center">
     Experimental c99 compiler. Attempts to bring modern features to c
@@ -16,6 +16,7 @@
     <br />
     <a href="https://github.com/crim4/z9/tree/main/docs"><strong>Explore the examples »</strong></a>
     <br />
+    ·
     <br />
     <a href="https://github.com/crim4/z9/tree/main/compiler_demo">View Demo</a>
     ·
