@@ -1,0 +1,9 @@
+// printing all the tokens of this compilation
+// unit, directly at comtime;
+// what this example is meant to show is how
+// easy you can interface with the compiler
+// data (you can even mutate this data)
+@meta {
+    for (const t : @unit.tokens)
+        @dbg(t);
+}

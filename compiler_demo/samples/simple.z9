@@ -65,7 +65,6 @@ char* nth(size_t index) {
 @test "another test" {
 
 }
-*/
 
 @import pkg_io = io;
 
@@ -82,3 +81,8 @@ char* nth(size_t index) {
 @import {
     something, alias = other
 } = "local.h";
+*/
+
+void main() {
+    
+}

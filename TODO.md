@@ -1,2 +1,3 @@
 TODO:
-  * parser -> implement templates (instantiation, declaration)
+  * implement templates (instantiation, declaration)
+  * implement `__attribute__`

@@ -1,7 +1,3 @@
-// THIS IS JUST A SKETCH
-// AND IT DOESN'T EVEN MAKE SENSE
-// I'M GONNA DEPRECATE THIS
-
 @import mem;
 
 const len = (size_t)10;
@@ -14,11 +10,7 @@ const len = (size_t)10;
     @defer mem.drop(b);
 }
 
-// TODO: design this in a better way
 @test "joint malloc" {
-    @unpack(const a, const b) = @joint<int32_t, int8_t>(
-        mem.alloc_array,
-        len
-    );
+    @unpack(const a, const b) = mem.alloc_arrays<int32_t, int8_t>(len);
     @defer mem.drop(a);
 }

@@ -64,6 +64,18 @@ class TranslationUnit:
 
       self.tokens.append(token)
 
+  def mrgen(self) -> None:
+    from z9_mrgen import MrGen
+    from data import SemaTable
+
+    if self.failed:
+      return
+
+    g = MrGen(self)
+    self.tab: SemaTable = SemaTable()
+
+    g.gen_whole_unit()
+
   def dparse(self) -> None:
     from z9_dparser import DParser
     from data import MultipleNode

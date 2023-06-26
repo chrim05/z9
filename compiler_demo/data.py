@@ -281,3 +281,6 @@ class ParsingError(Exception):
 
 class UnreachableError(Exception):
   pass
+
+class SemaTable:
+  pass

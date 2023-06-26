@@ -1,3 +1,4 @@
+<br />
 <div align="center">
   <a href="https://www.flaticon.com/free-icons/devil" title="devil icons">
     <img src="misc/icon_alt.png" alt="Logo" width="300" height="300">
