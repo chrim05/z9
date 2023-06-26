@@ -1,13 +1,13 @@
 <br />
 <div align="center">
   <a href="https://www.flaticon.com/free-icons/devil" title="devil icons">
-    <img src="misc/icon_alt.png" alt="Logo" width="300" height="300">
+    <img src="misc/icon_alt.png" alt="Logo" width="250" height="250">
   </a>
 
   <b><h3 align="center">The z9 Compiler</h3></b>
 
   <p align="center">
-    Experimental c99 compiler. Attempts to bring modern features to c
+    Experimental c99 compiler. Attempts to bring modern features to c.
     <br />
     <br />
     <a href="https://github.com/crim4/z9/tree/main/docs"><strong>Explore the docs »</strong></a>
