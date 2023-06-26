@@ -40,6 +40,8 @@ some detail comes from old little projects of mine
 
 **note:** this language is hightly inspired by the circle compiler project, and zig as well.
 
+<br/>
+
 # why (just a personal experimental project)
 
 **this is actually a personal experiment**, i wanted to start since i think having new languages with amazing features makes sense to a certain extent, while having an extension of c is, in my opinion, a bit more helpful for certain situations;
@@ -57,6 +59,8 @@ addionally, this introduces the need of header files; header files are a terribl
 i can't write a full cpp compiler.
 
 but maybe i can write a minimal c99 compiler and extend it(?) i'll try my best.
+
+<br/>
 
 # features i want to see in the compiler (see examples folder):
 </div>
