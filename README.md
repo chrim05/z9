@@ -1,13 +1,40 @@
-# the official repository for the z9 compiler
+<div align="center">
+  <a href="https://www.flaticon.com/free-icons/devil" title="devil icons">
+    <img src="misc/icon_alt.png" alt="Logo" width="100" height="100">
+  </a>
+
+  <h3 align="center">The z9 Compiler</h3>
+
+  <p align="center">
+    A personal experimental c99 extended compiler
+    <br />
+    <br />
+    <a href="https://github.com/crim4/z9/tree/main/docs"><strong>Explore the docs »</strong></a>
+    <br />
+    ·
+    <br />
+    <a href="https://github.com/crim4/z9/tree/main/docs"><strong>Explore the examples »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/crim4/z9/tree/main/compiler_demo">View Demo</a>
+    ·
+    <a href="https://github.com/crim4/z9/issues">Report Bug</a>
+    ·
+    <a href="https://github.com/crim4/z9/issues">Request Feature</a>
+  </p>
+
+<br />
+
+# details
 **please report ANYthing you think is inappropriate, since this project is run by a young guy, and experienced developers' suggestions would be very helpful**
 
-(please use `.z9` extension when writing c code which can only be compiled by z9)
+(a file compiled by this compiler should have the `.z9` extension, this will avoid weird behaviours when dealing with the `@import` directive and modules)
 
-the point of z9 is to support the majority of the actual c99 code, trying to also add modern features (read below for the compiler's goals)
+the point of z9 is to support the majority of the actual c99 code (mainly to allow including c libraries), trying in the meanwhile to add modern features (read below for the compiler's goals)
 
-several new ideas introduced are inherited from more mature projects, such as the circle compiler, zig and nim;
+several ideas introduced are inherited from mature projects, such as the circle compiler, zig and c++;
 
-some details comes from old little projects of mine
+some detail comes from old little projects of mine
 
 # why (just a personal experimental project)
 
@@ -27,7 +54,9 @@ i can't write a full cpp compiler.
 
 but maybe i can write a minimal c99 compiler and extend it(?) i'll try my best.
 
-**features i want in the compiler (see `examples/`):**
+# features i want to see in the compiler (see examples folder):
+</div>
+
 * 90% compatible with existing code
 * tags, `@name` can be a new way to do something, for example `@include_once "..."` or `@execute_at_compile_time(...)` or `@defer` etc..
 * members don't need to be forward declared:

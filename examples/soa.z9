@@ -11,16 +11,14 @@
 // and you can produce a soa version of it without having to rewrite
 // half of the container
 
-@import vec -> {
-  vec_t
-};
+@import { vec_t } = vec;
 
 typedef struct { int32_t x; int64_t y; } couple_t;
 
 // we are loosing 4 bytes each element
-typedef vec_t<couple_t>       couples1_t;
+typedef vec_t<couple_t>         couples1_t;
 // nothing lost
-typedef @soa<vec_t, couple_t> couples2_t;
+typedef @soa_t<vec_t, couple_t> couples2_t;
 
 @test "couples" {
   // nothing weird happens
