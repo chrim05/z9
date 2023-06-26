@@ -15,3 +15,7 @@
 //
 // * `0` is not coerced to pointer automatically
 //   only `@null` is accepted
+//
+// * (maybe) the use of `long` is an error
+//   since its size is always ambiguous,
+//   the error should advice to use `long long` instead
