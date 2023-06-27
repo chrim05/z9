@@ -240,11 +240,23 @@ class MrGen:
     if node.is_empty_decl():
       raise NotImplementedError()
 
+    assert isinstance(node, SyntaxNode)
+
+    key = {
+      'Declaration': 'initializer',
+      'FunctionDefinition': 'body'
+    }[node.syntax_name]
+    
     name = self.get_declaration_name(node)
+    is_weak = node[key] is None
     print(name)
-    self.tab.declare(name, node, node.loc)
+
+    self.tab.declare(name, node, is_weak, node.loc)
 
   def process_top_level(self, node: Node) -> None:
+    # TODO: for FunctionDefinitions should produce
+    #       a function pointer type
+    #       so that i can compare it easily
     typ = self.get_declaration_typ(node)
     print(typ)
 
@@ -252,5 +264,10 @@ class MrGen:
     for top_level in self.root.nodes:
       self.predeclare_top_level(top_level)
 
-    for sym in self.tab.members.values():
+    for sym, is_weak in self.tab.members.values():
+      # TODO: check that all weak declarations
+      #       match with the non-weak one
+      if is_weak:
+        continue
+
       self.process_top_level(cast(Node, sym))

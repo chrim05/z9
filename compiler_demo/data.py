@@ -350,7 +350,6 @@ class PointerTyp(Typ):
     quals = self.quals()
     quals.insert(0, repr(self.pointee))
 
-    '''
     if len(quals) == 1:
       return f'{quals[0]}*'
 
@@ -359,9 +358,8 @@ class PointerTyp(Typ):
         ' '.join(quals[1:]) +
       '*)'
     )
-    '''
 
-    return ' '.join(quals) + '*'
+    # return ' '.join(quals) + '*'
 
 class ArrayTyp(Typ):
   def __init__(self, pointee: Typ, size: 'Val') -> None:
@@ -401,11 +399,24 @@ class SemaTable:
     from unit import TranslationUnit
 
     self.unit: TranslationUnit = unit
-    self.members: dict[str, Symbol | Node] = {}
+    self.members: dict[str, tuple[Symbol | Node, bool]] = {}
 
-  def declare(self, name: str, value: Symbol | Node, loc: Loc) -> None:
+  def is_weak(self, name: str) -> bool:
+    return self.members[name][1]
+
+  def declare(
+    self,
+    name: str,
+    value: Symbol | Node,
+    is_weak: bool,
+    loc: Loc
+  ) -> None:
     if name in self.members:
-      self.unit.report(f'name "{name}" already declared', loc)
-      return
+      if is_weak:
+        return
 
-    self.members[name] = value
+      if not self.is_weak(name):
+        self.unit.report(f'name "{name}" already declared', loc)
+        return
+
+    self.members[name] = (value, is_weak)
