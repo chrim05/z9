@@ -350,6 +350,7 @@ class PointerTyp(Typ):
     quals = self.quals()
     quals.insert(0, repr(self.pointee))
 
+    '''
     if len(quals) == 1:
       return f'{quals[0]}*'
 
@@ -358,8 +359,24 @@ class PointerTyp(Typ):
         ' '.join(quals[1:]) +
       '*)'
     )
+    '''
 
-    # return ' '.join(quals) + '*'
+    return ' '.join(quals) + '*'
+
+class FnTyp(Typ):
+  def __init__(self, ret: Typ, params: list[Typ]) -> None:
+    super().__init__()
+
+    self.ret: Typ = ret
+    self.params: list[Typ] = params
+
+  def __repr__(self) -> str:
+    quals = self.quals()
+
+    params = ', '.join(map(repr, self.params))
+    quals.insert(0, f'{self.ret} ({params})')
+
+    return ' '.join(quals)
 
 class ArrayTyp(Typ):
   def __init__(self, pointee: Typ, size: 'Val') -> None:
@@ -400,6 +417,7 @@ class SemaTable:
 
     self.unit: TranslationUnit = unit
     self.members: dict[str, tuple[Symbol | Node, bool]] = {}
+    # self.heading_decls: set[str] = set()
 
   def is_weak(self, name: str) -> bool:
     return self.members[name][1]

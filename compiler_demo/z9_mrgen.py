@@ -62,13 +62,19 @@ class MrGen:
 
     def match_combination(comb: dict[str, int | tuple[int, ...]]) -> bool:
       for kind, count in comb.items():
+        is_option = isinstance(count, tuple)
+        option = cast(tuple[int, ...], count)
+
         if kind not in specs:
+          if is_option and 0 in option:
+            continue
+
           return False
 
-        if isinstance(count, tuple) and specs[kind] not in count:
+        if is_option and specs[kind] not in option:
           return False
 
-        if specs[kind] != count:
+        if isinstance(count, int) and specs[kind] != count:
           return False
 
       return True
@@ -123,13 +129,6 @@ class MrGen:
 
     typ = self.create_numeric_typ_from_dspecs(loc, specs, typedefed)
 
-    if isinstance(typ, VoidTyp) and len(quals) != 0:
-      self.unit.report(
-        'type specifier "void" does not accept any type qualifier',
-        loc
-      )
-      return typ
-
     self.apply_typequals_on_typ(typ, quals)
 
     return typ
@@ -151,72 +150,71 @@ class MrGen:
         for q in qual_list.nodes
     )
 
-  def make_pa_typ_from_pa_declarator(
+  def make_fntyp_from_param_list_declarator(
     self,
-    typ: Typ,
-    node: Node | None
+    ret: Typ,
+    node: SyntaxNode
   ) -> Typ:
-    if not isinstance(node, SyntaxNode) or node is None:
+    # TODO: implement ellipsis
+    params = cast(MultipleNode, node['parameter_list'])
+    typs: list[Typ] = [
+      self.get_declaration_typ(p)
+        for p in params.nodes
+    ]
+
+    return FnTyp(ret, typs)
+
+  def make_typ_from_declarator(self, typ: Typ, d: Node | None) -> Typ:
+    if not isinstance(d, SyntaxNode):
       return typ
 
-    args: tuple[Typ, Node | None]
+    match d.syntax_name:
+      case 'ArrayDeclarator':
+        return self.make_typ_from_declarator(
+          # TODO: add the evaluated size initializer
+          ArrayTyp(typ, POISONED_VAL), d['declarator']
+        )
 
-    match node.syntax_name:
+      case 'ParameterListDeclarator':
+        typ = self.make_fntyp_from_param_list_declarator(
+          typ, d
+        )
+
+        return self.make_typ_from_declarator(
+          typ, d['declarator']
+        )
+
       case 'Pointer':
+        typ = self.make_typ_from_declarator(
+          typ, d['pointer']
+        )
+
         typ = PointerTyp(typ)
 
         self.apply_typequals_on_typ(
           typ,
           self.type_qualifier_list_to_quals(
-            cast(MultipleNode, node['type_qualifier_list'])
+            cast(MultipleNode, d['type_qualifier_list'])
           )
         )
 
-        typ = self.make_pa_typ_from_pa_declarator(
-          typ, node['pointer']
+        return typ
+
+      case 'Declarator':
+        # for the pointer
+        typ = self.make_typ_from_declarator(
+          typ, d['pointer']
         )
 
-      case 'ArrayDeclarator':
-        # TODO: add the evaluated size initializer
-        typ = self.make_pa_typ_from_declaration(
-          ArrayTyp(typ, POISONED_VAL),
-          cast(SyntaxNode, node)
+        # recursively (maybe there is the array too)
+        typ = self.make_typ_from_declarator(
+          typ, d['direct_declarator']
         )
+
+        return typ
 
       case _:
-        pass
-
-    return typ
-
-  def make_pa_typ_from_declaration(self, typ: Typ, node: Node) -> Typ:
-    if not isinstance(node, SyntaxNode):
-      return typ
-
-    d = node['declarator']
-
-    if (
-      not isinstance(d, SyntaxNode) or 
-      d.syntax_name not in ['Declarator', 'ArrayDeclarator']
-    ):
-      return typ
-
-    if d.syntax_name == 'ArrayDeclarator':
-      return self.make_pa_typ_from_declaration(
-        # TODO: add the array size val
-        ArrayTyp(typ, POISONED_VAL), d
-      )
-
-    # for the pointer
-    typ = self.make_pa_typ_from_pa_declarator(
-      typ, d['pointer']
-    )
-
-    # recursively (maybe there is the array too)
-    typ = self.make_pa_typ_from_pa_declarator(
-      typ, d['direct_declarator']
-    )
-
-    return typ
+        return typ
     
   def get_declaration_typ(self, node: Node | None) -> Typ:
     if isinstance(node, MultipleNode):
@@ -227,10 +225,11 @@ class MrGen:
 
     match node.syntax_name:
       case \
-        'Declaration' | \
-        'FunctionDefinition':
+        'Declaration'        | \
+        'FunctionDefinition' | \
+        'ParameterDeclaration':
           typ = self.get_declaration_typ(node['declaration_specifiers'])
-          typ = self.make_pa_typ_from_declaration(typ, node)
+          typ = self.make_typ_from_declarator(typ, node['declarator'])
           return typ
 
       case _:

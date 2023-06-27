@@ -402,6 +402,7 @@ contexts:
   #############################################################################
 
   global:
+    - include: types
     - include: early-expressions
     - match: '^\s*(?=\w+)'
       push: global-modifier
