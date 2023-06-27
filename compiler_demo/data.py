@@ -350,6 +350,7 @@ class PointerTyp(Typ):
     quals = self.quals()
     quals.insert(0, repr(self.pointee))
 
+    '''
     if len(quals) == 1:
       return f'{quals[0]}*'
 
@@ -358,6 +359,9 @@ class PointerTyp(Typ):
         ' '.join(quals[1:]) +
       '*)'
     )
+    '''
+
+    return ' '.join(quals) + '*'
 
 class ArrayTyp(Typ):
   def __init__(self, pointee: Typ, size: 'Val') -> None:

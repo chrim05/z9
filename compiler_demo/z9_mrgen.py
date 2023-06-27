@@ -172,22 +172,20 @@ class MrGen:
           )
         )
 
-        args = (
+        typ = self.make_pa_typ_from_pa_declarator(
           typ, node['pointer']
         )
 
       case 'ArrayDeclarator':
         # TODO: add the evaluated size initializer
-        args = (
-          ArrayTyp(typ, POISONED_VAL), node['declarator']
+        typ = self.make_pa_typ_from_declaration(
+          ArrayTyp(typ, POISONED_VAL),
+          cast(SyntaxNode, node)
         )
 
       case _:
-        return typ
+        pass
 
-    typ = self.make_pa_typ_from_pa_declarator(
-      *args
-    )
     return typ
 
   def make_pa_typ_from_declaration(self, typ: Typ, node: Node) -> Typ:
@@ -243,12 +241,12 @@ class MrGen:
       raise NotImplementedError()
 
     name = self.get_declaration_name(node)
+    print(name)
     self.tab.declare(name, node, node.loc)
 
   def process_top_level(self, node: Node) -> None:
     typ = self.get_declaration_typ(node)
     print(typ)
-    print(type(typ).__name__, typ.is_const)
 
   def gen_whole_unit(self) -> None:
     for top_level in self.root.nodes:
