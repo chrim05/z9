@@ -1,4 +1,4 @@
-from typing import Callable, Any
+from typing import Callable, Any, cast
 
 META_TYPES = [
   'this_t', 'info_t',
@@ -297,12 +297,6 @@ class Typ:
   ) -> None:
     self.is_const: bool = is_const
 
-  '''
-  def inherit_from(self, typ: Typ) -> Typ:
-    self.__dict__.update(typ.__dict__)
-    return self
-  '''
-
   def quals(self) -> list[str]:
     r = []
 
@@ -310,6 +304,26 @@ class Typ:
       r.append('const')
 
     return r
+
+  def are_quals_eq(self, other: 'Typ') -> bool:
+    return (
+      self.is_const == other.is_const
+    )
+
+  def is_eq(self, other) -> bool:
+    raise NotImplementedError(type(self).__name__)
+
+  def __eq__(self, other: object) -> bool:
+    if isinstance(self, PoisonedTyp) or isinstance(other, PoisonedTyp):
+      return True
+
+    if type(self) != type(other):
+      return False
+
+    if not self.are_quals_eq(cast(Typ, other)):
+      return False
+
+    return self.is_eq(other)
 
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
@@ -320,6 +334,12 @@ class IntTyp(Typ):
 
     self.kind: str = kind
     self.is_signed: bool = is_signed
+
+  def is_eq(self, other: 'IntTyp') -> bool:
+    return (
+      self.kind == other.kind and
+      self.is_signed == other.is_signed
+    )
 
   def __repr__(self) -> str:
     if self.kind == 'longlong':
@@ -334,6 +354,9 @@ class VoidTyp(Typ):
   def __init__(self) -> None:
     super().__init__()
 
+  def is_eq(self, other: 'VoidTyp') -> bool:
+    return True
+
   def __repr__(self) -> str:
     quals = self.quals()
     quals.insert(0, 'void')
@@ -345,6 +368,9 @@ class PointerTyp(Typ):
     super().__init__()
 
     self.pointee: Typ = pointee
+
+  def is_eq(self, other: 'PointerTyp') -> bool:
+    return self.pointee == other.pointee
 
   def __repr__(self) -> str:
     quals = self.quals()
@@ -370,13 +396,19 @@ class FnTyp(Typ):
     self.ret: Typ = ret
     self.params: list[Typ] = params
 
+  def is_eq(self, other: 'FnTyp') -> bool:
+    return (
+      self.ret == other.ret and
+      self.params == other.params
+    )
+
   def __repr__(self) -> str:
     quals = self.quals()
 
     params = ', '.join(map(repr, self.params))
     quals.insert(0, f'{self.ret} ({params})')
 
-    return ' '.join(quals)
+    return '@fn ' + ' '.join(quals)
 
 class ArrayTyp(Typ):
   def __init__(self, pointee: Typ, size: 'Val') -> None:
@@ -384,6 +416,12 @@ class ArrayTyp(Typ):
 
     self.pointee: Typ = pointee
     self.size: Val = size
+
+  def is_eq(self, other: 'ArrayTyp') -> bool:
+    return (
+      self.pointee == other.pointee and
+      self.size == other.size
+    )
 
   def __repr__(self) -> str:
     return f'{self.pointee}[{self.size}]'
@@ -400,6 +438,12 @@ class Val:
     self.typ: Typ = typ
     self.value: object = value
 
+  def __eq__(self, other: object) -> bool:
+    if not isinstance(other, Val):
+      return False
+
+    raise NotImplementedError(type(self).__name__)
+
   def __repr__(self) -> str:
     if self.value is None:
       return '@undef'
@@ -409,32 +453,47 @@ class Val:
 POISONED_VAL = Val(PoisonedTyp(), None)
 
 class Symbol:
-  pass
+  def __init__(self, typ: Typ) -> None:
+    self.typ: Typ = typ
 
 class SemaTable:
   def __init__(self, unit) -> None:
     from unit import TranslationUnit
 
     self.unit: TranslationUnit = unit
-    self.members: dict[str, tuple[Symbol | Node, bool]] = {}
-    # self.heading_decls: set[str] = set()
+    self.members: dict[str, Symbol | tuple[Node, bool]] = {}
+    self.heading_decls: dict[str, list[Node]] = {}
 
   def is_weak(self, name: str) -> bool:
-    return self.members[name][1]
+    return cast(tuple, self.members[name])[1]
+
+  def save_weak_decl(self, name: str, decl: Node) -> None:
+    if name not in self.heading_decls:
+      self.heading_decls[name] = []
+
+    self.heading_decls[name].append(decl)
 
   def declare(
     self,
     name: str,
-    value: Symbol | Node,
+    value: Node,
     is_weak: bool,
     loc: Loc
   ) -> None:
     if name in self.members:
+      # we don't want the week declaration
+      # to overwrite the complete one
       if is_weak:
+        self.save_weak_decl(name, value)
         return
 
       if not self.is_weak(name):
         self.unit.report(f'name "{name}" already declared', loc)
         return
+
+      self.save_weak_decl(
+        name,
+        cast(Node, self.members[name])[0]
+      )
 
     self.members[name] = (value, is_weak)

@@ -7,7 +7,7 @@ class TranslationUnit:
     from tempfile import NamedTemporaryFile
     from rich.console import Console
 
-    self.console = Console()
+    self.console = Console(emoji=False)
 
     preprocessed_filepath: str = NamedTemporaryFile().name
     clang_cpp = run(

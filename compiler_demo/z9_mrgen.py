@@ -248,25 +248,40 @@ class MrGen:
     
     name = self.get_declaration_name(node)
     is_weak = node[key] is None
-    print(name)
+    # print(name)
 
     self.tab.declare(name, node, is_weak, node.loc)
 
-  def process_top_level(self, node: Node) -> None:
-    # TODO: for FunctionDefinitions should produce
-    #       a function pointer type
-    #       so that i can compare it easily
+  def process_top_level(self, node: Node) -> Symbol:
+    # TODO: handle the weak declarations,
+    #       which must be interpreted as
+    #       extern functions
     typ = self.get_declaration_typ(node)
-    print(typ)
+    # print(typ)
+
+    return Symbol(typ)
 
   def gen_whole_unit(self) -> None:
     for top_level in self.root.nodes:
       self.predeclare_top_level(top_level)
 
-    for sym, is_weak in self.tab.members.values():
-      # TODO: check that all weak declarations
-      #       match with the non-weak one
-      if is_weak:
-        continue
+    for name, value in self.tab.members.items():
+      assert not isinstance(value, Symbol)
+      sym, is_weak = value
 
-      self.process_top_level(cast(Node, sym))
+      self.tab.members[name] = self.process_top_level(cast(Node, sym))
+
+    # checking that all weak declarations
+    # match the signature with the complete ones
+    for name, weak_decls in self.tab.heading_decls.items():
+      complete_decl = self.tab.members[name]
+      assert isinstance(complete_decl, Symbol)
+
+      for weak_decl in weak_decls:
+        weak_decl_typ = self.get_declaration_typ(weak_decl)
+
+        if complete_decl.typ != weak_decl_typ:
+          self.unit.report(
+            'heading declaration is not compatible with its definition',
+            weak_decl.loc
+          )

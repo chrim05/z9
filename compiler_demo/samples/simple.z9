@@ -86,14 +86,15 @@ char* nth(size_t index) {
 // char const* const (*a)[10][20];
 // char* const (*const a)[10];
 
-void* const* main(const void* a, char* const* b, short** c, int d) {
-    
-}
+// void* const* main(const void* a, char* const* b, short** c, int d) {
+//     
+// }
 
-// void main();
+int x;
+short x = 1;
 
-// int v;
-// int v;
-// int v = 1;
-// int v;
-// int v = 2;
+int v;
+int v;
+int v = 1;
+int v;
+int v = 2;
