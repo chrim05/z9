@@ -30,8 +30,9 @@ class MrGen:
       case 'Declarator':
         return self.get_declaration_name(node['direct_declarator'])
 
-      case \
-        'Declaration' | \
+      case                     \
+        'ArrayDeclarator'    | \
+        'Declaration'        | \
         'FunctionDefinition' | \
         'ParameterListDeclarator':
           return self.get_declaration_name(node['declarator'])
@@ -48,6 +49,8 @@ class MrGen:
     if typedefed is not None:
       raise NotImplementedError()
 
+    # awkward pythonic type notation
+    combinations: list[tuple[str, dict[str, int | tuple[int, ...]]]]
     combinations = [
       ('void',     {'void': 1}),
       ('char',     {'char': 1}),
@@ -77,7 +80,7 @@ class MrGen:
       if kind == 'void':
         return VoidTyp()
 
-      return IntTyp(kind)
+      return IntTyp(kind, 'unsigned' not in comb)
 
     self.unit.report('invalid combination of numeric types', loc)
     return PoisonedTyp()
@@ -127,6 +130,11 @@ class MrGen:
       )
       return typ
 
+    self.apply_typequals_on_typ(typ, quals)
+
+    return typ
+
+  def apply_typequals_on_typ(self, typ: Typ, quals: set[str]) -> None:
     for qual in quals:
       match qual:
         case 'const':
@@ -135,9 +143,15 @@ class MrGen:
         case _:
           raise UnreachableError()
 
-    return typ
+  def type_qualifier_list_to_quals(self, qual_list: MultipleNode) -> set[str]:
+    return set(
+      # not always true,
+      # but at the moment it's okay
+      cast(Token, q).kind
+        for q in qual_list.nodes
+    )
 
-  def make_pointer_typ_from_pointer_declarator(
+  def make_pa_typ_from_pa_declarator(
     self,
     typ: Typ,
     node: Node | None
@@ -145,31 +159,66 @@ class MrGen:
     if not isinstance(node, SyntaxNode) or node is None:
       return typ
 
-    # TODO: add the pointer qualifiers
-    typ = self.make_pointer_typ_from_pointer_declarator(
-      PointerTyp(typ),
-      node['pointer']
-    )
+    args: tuple[Typ, Node | None]
 
+    match node.syntax_name:
+      case 'Pointer':
+        typ = PointerTyp(typ)
+
+        self.apply_typequals_on_typ(
+          typ,
+          self.type_qualifier_list_to_quals(
+            cast(MultipleNode, node['type_qualifier_list'])
+          )
+        )
+
+        args = (
+          typ, node['pointer']
+        )
+
+      case 'ArrayDeclarator':
+        # TODO: add the evaluated size initializer
+        args = (
+          ArrayTyp(typ, POISONED_VAL), node['declarator']
+        )
+
+      case _:
+        return typ
+
+    typ = self.make_pa_typ_from_pa_declarator(
+      *args
+    )
     return typ
 
-
-  def make_pointer_typ_from_declaration(self, typ: Typ, node: Node) -> Typ:
+  def make_pa_typ_from_declaration(self, typ: Typ, node: Node) -> Typ:
     if not isinstance(node, SyntaxNode):
-      raise UnreachableError()
+      return typ
 
     d = node['declarator']
 
     if (
       not isinstance(d, SyntaxNode) or 
-      d.syntax_name != 'Declarator'
+      d.syntax_name not in ['Declarator', 'ArrayDeclarator']
     ):
       return typ
 
-    return self.make_pointer_typ_from_pointer_declarator(
-      typ,
-      d['pointer']
+    if d.syntax_name == 'ArrayDeclarator':
+      return self.make_pa_typ_from_declaration(
+        # TODO: add the array size val
+        ArrayTyp(typ, POISONED_VAL), d
+      )
+
+    # for the pointer
+    typ = self.make_pa_typ_from_pa_declarator(
+      typ, d['pointer']
     )
+
+    # recursively (maybe there is the array too)
+    typ = self.make_pa_typ_from_pa_declarator(
+      typ, d['direct_declarator']
+    )
+
+    return typ
     
   def get_declaration_typ(self, node: Node | None) -> Typ:
     if isinstance(node, MultipleNode):
@@ -183,7 +232,8 @@ class MrGen:
         'Declaration' | \
         'FunctionDefinition':
           typ = self.get_declaration_typ(node['declaration_specifiers'])
-          return self.make_pointer_typ_from_declaration(typ, node)
+          typ = self.make_pa_typ_from_declaration(typ, node)
+          return typ
 
       case _:
         raise UnreachableError()
@@ -198,6 +248,7 @@ class MrGen:
   def process_top_level(self, node: Node) -> None:
     typ = self.get_declaration_typ(node)
     print(typ)
+    print(type(typ).__name__, typ.is_const)
 
   def gen_whole_unit(self) -> None:
     for top_level in self.root.nodes:

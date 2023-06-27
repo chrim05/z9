@@ -291,9 +291,11 @@ class UnreachableError(Exception):
   pass
 
 class Typ:
-  def __init__(self) -> None:
-    self.is_const: bool = False
-    self.is_signed: bool = True
+  def __init__(
+    self,
+    is_const: bool = False
+  ) -> None:
+    self.is_const: bool = is_const
 
   '''
   def inherit_from(self, typ: Typ) -> Typ:
@@ -301,46 +303,75 @@ class Typ:
     return self
   '''
 
-  def __repr__(self) -> str:
-    r = ''
+  def quals(self) -> list[str]:
+    r = []
 
     if self.is_const:
-      r += 'const '
-
-    if not self.is_signed:
-      r += 'unsigned '
+      r.append('const')
 
     return r
 
+  def __repr__(self) -> str:
+    raise NotImplementedError(type(self).__name__)
+
 class IntTyp(Typ):
-  def __init__(self, kind: str) -> None:
+  def __init__(self, kind: str, is_signed: bool) -> None:
     super().__init__()
+
     self.kind: str = kind
+    self.is_signed: bool = is_signed
 
   def __repr__(self) -> str:
     if self.kind == 'longlong':
       return 'long long'
 
-    return f'{super().__repr__()}{self.kind}'
+    quals = self.quals()
+    quals.insert(0, self.kind)
+
+    return ' '.join(quals)
 
 class VoidTyp(Typ):
   def __init__(self) -> None:
-    pass
+    super().__init__()
 
   def __repr__(self) -> str:
-    return 'void'
+    quals = self.quals()
+    quals.insert(0, 'void')
+
+    return ' '.join(quals)
 
 class PointerTyp(Typ):
   def __init__(self, pointee: Typ) -> None:
+    super().__init__()
+
     self.pointee: Typ = pointee
 
   def __repr__(self) -> str:
-    # TODO: add pointer qualifiers
-    return f'{self.pointee}*'
+    quals = self.quals()
+    quals.insert(0, repr(self.pointee))
+
+    if len(quals) == 1:
+      return f'{quals[0]}*'
+
+    return (
+      quals[0] + ' (' +
+        ' '.join(quals[1:]) +
+      '*)'
+    )
+
+class ArrayTyp(Typ):
+  def __init__(self, pointee: Typ, size: 'Val') -> None:
+    super().__init__(pointee.is_const)
+
+    self.pointee: Typ = pointee
+    self.size: Val = size
+
+  def __repr__(self) -> str:
+    return f'{self.pointee}[{self.size}]'
 
 class PoisonedTyp(Typ):
   def __init__(self) -> None:
-    pass
+    super().__init__()
 
   def __repr__(self) -> str:
     return '?'
@@ -349,6 +380,14 @@ class Val:
   def __init__(self, typ: Typ, value: object) -> None:
     self.typ: Typ = typ
     self.value: object = value
+
+  def __repr__(self) -> str:
+    if self.value is None:
+      return '@undef'
+
+    return repr(self.value)
+
+POISONED_VAL = Val(PoisonedTyp(), None)
 
 class Symbol:
   pass

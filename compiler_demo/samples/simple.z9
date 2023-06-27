@@ -83,4 +83,4 @@ char* nth(size_t index) {
 } = "local.h";
 */
 
-char main();
+char const* const a[10];
