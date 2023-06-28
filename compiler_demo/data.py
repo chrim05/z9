@@ -462,6 +462,23 @@ class Symbol:
   def __init__(self, typ: Typ) -> None:
     self.typ: Typ = typ
 
+  def __repr__(self) -> str:
+    raise NotImplementedError(type(self).__name__)
+
+class ExternFnSymbol(Symbol):
+  def __repr__(self) -> str:
+    return f'ExternFnSymbol({self.typ})'
+
+class FnSymbol(Symbol):
+  def __init__(self, fn) -> None:
+    super().__init__(fn.typ)
+
+    from z9_mrgen import FnMrGen
+    self.fn: FnMrGen = fn
+
+  def __repr__(self) -> str:
+    return f'FnSymbol({self.fn.code})'
+
 class SemaTable:
   def __init__(self, unit) -> None:
     from unit import TranslationUnit
@@ -503,3 +520,43 @@ class SemaTable:
       )
 
     self.members[name] = (value, is_weak)
+
+  def __repr__(self) -> str:
+    return '\n\n'.join(
+      f'{repr(name)} -> {m}' for name, m in self.members.items()
+    )
+
+from enum import IntEnum
+
+class MidOpcode(IntEnum):
+  RET_VOID = 0
+  RET      = 1
+
+class MidInstr:
+  def __init__(self, op: MidOpcode, typ: Typ) -> None:
+    self.op: MidOpcode = op
+    self.typ: Typ  = typ
+
+  def __repr__(self) -> str:
+    return \
+      f'MidInstr(op: {self.op.name}, typ: {self.typ})'
+
+class MidRepr:
+  def __init__(self) -> None:
+    self.instructions: list[MidInstr] = []
+
+  def emit(self, op: MidOpcode, t: Typ = VoidTyp()) -> None:
+    self.instructions.append(MidInstr(
+      op, t
+    ))
+
+  def ret_void(self) -> None:
+    self.emit(MidOpcode.RET_VOID)
+
+  def ret(self, t: Typ) -> None:
+    self.emit(MidOpcode.RET, t)
+
+  def __repr__(self) -> str:
+    return '\n  ' + f'\n  '.join(
+      map(repr, self.instructions)
+    ) + '\n'

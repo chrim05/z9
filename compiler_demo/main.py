@@ -8,8 +8,9 @@ t = TranslationUnit(f)
 t.lex()
 
 t.dparse()
-t.dump_root()
+# t.dump_root()
 
 t.mrgen()
+t.dump_tab()
 
 t.print_diagnostic()

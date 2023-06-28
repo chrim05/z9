@@ -10,6 +10,11 @@ class MrGen:
     from unit import TranslationUnit
 
     self.unit: TranslationUnit = unit
+    self.functions: list['FnMrGen'] = []
+
+  @property
+  def fn(self) -> 'FnMrGen':
+    return self.functions[-1]
 
   @property
   def root(self) -> MultipleNode:
@@ -51,31 +56,34 @@ class MrGen:
       raise NotImplementedError()
 
     # awkward pythonic type notation
-    combinations: list[tuple[str, dict[str, int | tuple[int, ...]]]]
+    combinations: list[tuple[str, dict[str, int]]]
+    # https://en.wikipedia.org/wiki/C_data_types
     combinations = [
       ('void',     {'void': 1}),
+
       ('char',     {'char': 1}),
+
       ('int',      {'int': 1}),
-      ('short',    {'short': 1, 'int': (0, 1)}),
-      ('long',     {'long': 1, 'int': (0, 1)}),
-      ('longlong', {'long': 2, 'int': (0, 1)}),
+      
+      ('short',    {'short': 1}),
+      ('short',    {'short': 1, 'int': 1}),
+
+      ('long',     {'long': 1}),
+      ('long',     {'long': 1, 'int': 1}),
+
+      ('longlong', {'long': 2}),
+      ('longlong', {'long': 2, 'int': 1}),
     ]
 
-    def match_combination(comb: dict[str, int | tuple[int, ...]]) -> bool:
+    def match_combination(comb: dict[str, int]) -> bool:
+      if len(comb) != len(specs):
+        return False
+
       for kind, count in comb.items():
-        is_option = isinstance(count, tuple)
-        option = cast(tuple[int, ...], count)
-
         if kind not in specs:
-          if is_option and 0 in option:
-            continue
-
           return False
 
-        if is_option and specs[kind] not in option:
-          return False
-
-        if isinstance(count, int) and specs[kind] != count:
+        if specs[kind] != count:
           return False
 
       return True
@@ -264,11 +272,30 @@ class MrGen:
     )
 
   def process_top_level(self, node: Node) -> Symbol:
-    # TODO: handle the weak declarations,
-    #       which must be interpreted as
-    #       extern functions
     typ = self.get_declaration_typ(node)
-    print(typ)
+    
+    assert isinstance(node, SyntaxNode)
+    match node.syntax_name:
+      case 'FunctionDefinition':
+        # heading declaration (must be interpreted
+        # as extern function, since at this stage
+        # MrGen should already know its definition
+        # but it doesn't)
+        if node['body'] is None:
+          return ExternFnSymbol(typ)
+
+        self.functions.append(FnMrGen(
+          self,
+          cast(FnTyp, typ),
+          node
+        ))
+        self.fn.process()
+        fn = self.functions.pop()
+
+        return FnSymbol(fn)
+
+      case _:
+        raise UnreachableError()
 
     return Symbol(typ)
 
@@ -296,3 +323,21 @@ class MrGen:
             'heading declaration is not compatible with its definition',
             weak_decl.loc
           )
+
+class FnMrGen:
+  def __init__(self, gen: MrGen, typ: FnTyp, node: SyntaxNode) -> None:
+    self.gen: MrGen = gen
+    self.typ: FnTyp = typ
+    self.node: SyntaxNode = node
+    self.code: MidRepr = MidRepr()
+
+  def parse_and_gen_block(self, block: CompoundNode) -> None:
+    for t in block.tokens:
+      pass
+
+  def process(self) -> None:
+    self.parse_and_gen_block(cast(
+      CompoundNode, self.node['body']
+    ))
+
+    self.code.ret_void()

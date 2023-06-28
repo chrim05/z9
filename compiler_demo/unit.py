@@ -110,3 +110,11 @@ class TranslationUnit:
     self.console.print(
       self.fix_message(repr(self.root))
     )
+
+  def dump_tab(self) -> None:
+    if self.failed:
+      return
+
+    self.console.print(
+      self.fix_message(repr(self.tab))
+    )
