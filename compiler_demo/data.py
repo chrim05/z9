@@ -390,11 +390,17 @@ class PointerTyp(Typ):
     return ' '.join(quals) + '*'
 
 class FnTyp(Typ):
-  def __init__(self, ret: Typ, params: list[Typ]) -> None:
+  def __init__(
+    self,
+    ret: Typ,
+    params: list[Typ],
+    pnames: list[Token | None]
+  ) -> None:
     super().__init__()
 
     self.ret: Typ = ret
     self.params: list[Typ] = params
+    self.pnames: list[Token | None] = pnames
 
   def is_eq(self, other: 'FnTyp') -> bool:
     return (
@@ -493,7 +499,7 @@ class SemaTable:
 
       self.save_weak_decl(
         name,
-        cast(Node, self.members[name])[0]
+        cast(tuple[Node, bool], self.members[name])[0]
       )
 
     self.members[name] = (value, is_weak)

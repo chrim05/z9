@@ -19,26 +19,27 @@ class MrGen:
   def tab(self) -> SemaTable:
     return self.unit.tab
 
-  def get_declaration_name(self, node: Node | None) -> str:
+  def get_declaration_name(self, node: Node | None) -> Token | None:
     if isinstance(node, Token) and node.kind == 'id':
-      return cast(str, node.value)
+      return node
 
     if not isinstance(node, SyntaxNode):
-      raise UnreachableError()
+      return None
 
     match node.syntax_name:
       case 'Declarator':
         return self.get_declaration_name(node['direct_declarator'])
 
-      case                     \
-        'ArrayDeclarator'    | \
-        'Declaration'        | \
-        'FunctionDefinition' | \
+      case                       \
+        'ArrayDeclarator'      | \
+        'Declaration'          | \
+        'ParameterDeclaration' | \
+        'FunctionDefinition'   | \
         'ParameterListDeclarator':
           return self.get_declaration_name(node['declarator'])
 
       case _:
-        raise UnreachableError()
+        return None
 
   def create_numeric_typ_from_dspecs(
     self,
@@ -157,12 +158,17 @@ class MrGen:
   ) -> Typ:
     # TODO: implement ellipsis
     params = cast(MultipleNode, node['parameter_list'])
+
     typs: list[Typ] = [
       self.get_declaration_typ(p)
         for p in params.nodes
     ]
+    names: list[Token | None] = [
+      self.get_declaration_name(p)
+        for p in params.nodes
+    ]
 
-    return FnTyp(ret, typs)
+    return FnTyp(ret, typs, names)
 
   def make_typ_from_declarator(self, typ: Typ, d: Node | None) -> Typ:
     if not isinstance(d, SyntaxNode):
@@ -246,18 +252,23 @@ class MrGen:
       'FunctionDefinition': 'body'
     }[node.syntax_name]
     
-    name = self.get_declaration_name(node)
+    name = cast(Token, self.get_declaration_name(node))
     is_weak = node[key] is None
     # print(name)
 
-    self.tab.declare(name, node, is_weak, node.loc)
+    self.tab.declare(
+      cast(str, name.value),
+      node,
+      is_weak,
+      name.loc
+    )
 
   def process_top_level(self, node: Node) -> Symbol:
     # TODO: handle the weak declarations,
     #       which must be interpreted as
     #       extern functions
     typ = self.get_declaration_typ(node)
-    # print(typ)
+    print(typ)
 
     return Symbol(typ)
 
