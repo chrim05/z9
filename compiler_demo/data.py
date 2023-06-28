@@ -45,6 +45,32 @@ def indented_repr(
   indent_level -= INDENT_DEPTH
   return f'{edges[0]}{s}{indented_line()}{edges[1]}'
 
+def recoverable(func):
+  '''
+  this is a decorator for parsing methods of DParser and FnMrGen;
+  it becomes useful to easily restore/recover
+  previous branch index when the parsing function
+  fails, basically when returns `None` | `False`, then we know
+  that it may moved ahead the index to next tokens,
+  but if it failed, we need to come back to the original tokens index
+  that there was before calling the parsing function
+  '''
+
+  def wrapper(*args, **kwargs):
+    this = args[0]
+
+    old_index = this.index
+    result = func(*args, **kwargs)
+
+    # when result is `None` (in the case of DParser) methods
+    # or when it's `False` (in the case of FnMrGen)
+    if not result:
+      this.index = old_index
+
+    return result
+
+  return wrapper
+
 class Loc:
   def __init__(self, filepath: str, line: int, col: int) -> None:
     self.filepath: str = filepath
@@ -314,7 +340,12 @@ class Typ:
     raise NotImplementedError(type(self).__name__)
 
   def __eq__(self, other: object) -> bool:
-    if isinstance(self, PoisonedTyp) or isinstance(other, PoisonedTyp):
+    typs = [type(self), type(other)]
+
+    if LitIntTyp in typs and IntTyp in typs:
+      return True
+
+    if PoisonedTyp in typs:
       return True
 
     if type(self) != type(other):
@@ -327,6 +358,10 @@ class Typ:
 
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
+
+class LitIntTyp(Typ):
+  def __repr__(self) -> str:
+    return f'literal int'
 
 class IntTyp(Typ):
   def __init__(self, kind: str, is_signed: bool) -> None:
@@ -440,9 +475,10 @@ class PoisonedTyp(Typ):
     return '?'
 
 class Val:
-  def __init__(self, typ: Typ, value: object) -> None:
+  def __init__(self, typ: Typ, value: object, loc: Loc) -> None:
     self.typ: Typ = typ
     self.value: object = value
+    self.loc: Loc = loc
 
   def __eq__(self, other: object) -> bool:
     if not isinstance(other, Val):
@@ -456,7 +492,11 @@ class Val:
 
     return repr(self.value)
 
-POISONED_VAL = Val(PoisonedTyp(), None)
+POISONED_LOC = Loc('<poisoned-file.z9>', 0, 0)
+POISONED_VAL = Val(PoisonedTyp(), None, POISONED_LOC)
+
+def void_val(loc: Loc):
+  return Val(VoidTyp(), None, loc)
 
 class Symbol:
   def __init__(self, typ: Typ) -> None:
@@ -531,30 +571,36 @@ from enum import IntEnum
 class MidOpcode(IntEnum):
   RET_VOID = 0
   RET      = 1
+  LOAD_LIT = 2
 
 class MidInstr:
-  def __init__(self, op: MidOpcode, typ: Typ) -> None:
+  def __init__(self, op: MidOpcode, ex: object) -> None:
     self.op: MidOpcode = op
-    self.typ: Typ  = typ
+    self.ex: object = ex
 
   def __repr__(self) -> str:
-    return \
-      f'MidInstr(op: {self.op.name}, typ: {self.typ})'
+    if self.ex is None:
+      return self.op.name
+
+    return f'{self.op.name} {repr(self.ex)}'
 
 class MidRepr:
   def __init__(self) -> None:
     self.instructions: list[MidInstr] = []
 
-  def emit(self, op: MidOpcode, t: Typ = VoidTyp()) -> None:
+  def emit(self, op: MidOpcode, ex: object = None) -> None:
     self.instructions.append(MidInstr(
-      op, t
+      op, ex
     ))
 
   def ret_void(self) -> None:
     self.emit(MidOpcode.RET_VOID)
 
-  def ret(self, t: Typ) -> None:
-    self.emit(MidOpcode.RET, t)
+  def ret(self) -> None:
+    self.emit(MidOpcode.RET)
+
+  def load_lit(self, lit: Val) -> None:
+    self.emit(MidOpcode.LOAD_LIT, lit)
 
   def __repr__(self) -> str:
     return '\n  ' + f'\n  '.join(

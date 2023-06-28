@@ -325,19 +325,177 @@ class MrGen:
           )
 
 class FnMrGen:
+  '''
+  content parser also from:
+  https://github.com/katef/kgt/blob/main/examples/c99-grammar.iso-ebnf
+  '''
+
   def __init__(self, gen: MrGen, typ: FnTyp, node: SyntaxNode) -> None:
+    from unit import TranslationUnit
+
     self.gen: MrGen = gen
     self.typ: FnTyp = typ
     self.node: SyntaxNode = node
     self.code: MidRepr = MidRepr()
+    # i can't use a property for this
+    # because the typing would cause
+    # circular module import
+    self.unit: TranslationUnit = self.gen.unit
 
-  def parse_and_gen_block(self, block: CompoundNode) -> None:
-    for t in block.tokens:
-      pass
+    self.tokens: list[Token]
+    self.index: int = 0
+
+  @property
+  def cur(self) -> Token:
+    return self.tok(0)
+
+  @property
+  def bck(self) -> Token:
+    return self.tok(-1)
+
+  def skip(self, count: int = 1) -> None:
+    self.index += count
+
+  def tok(self, offset: int) -> Token:
+    if not self.has_token(offset):
+      return Token('eof', None, self.tokens[-1].loc)
+
+    return self.tokens[self.index + offset]
+
+  def has_token(self, offset: int = 0) -> bool:
+    return self.index + offset < len(self.tokens)
+
+  def token(self, *kinds: str) -> bool:
+    for kind in kinds:
+      if kind == self.cur.kind:
+        self.skip()
+        return True
+
+    return False
+
+  def expect_token(self, kind: str) -> Token:
+    token = self.cur
+
+    if not self.token(kind):
+      self.unit.report(
+        f'expected token "{kind}", matched "{self.cur.kind}"',
+        self.cur.loc
+      )
+
+    return token
+
+  def pp_unary_expression(self) -> Val:
+    if self.token('num'):
+      v = Val(
+        LitIntTyp(),
+        cast(int, self.bck.value),
+        self.bck.loc
+      )
+
+      self.code.load_lit(v)
+
+      return v
+
+    raise NotImplementedError()
+
+  def pp_assignment_expression(self) -> Val:
+    # TODO: check for assignment operators
+    #       otherwise conditional_expression
+
+    lval = self.pp_unary_expression()
+
+    return lval
+
+  def pp_expression(self, is_stmt: bool = False) -> Val:
+    first = self.pp_assignment_expression()
+
+    while is_stmt and self.token(','):
+      loc = self.cur.loc
+      self.pp_assignment_expression()
+
+      first = void_val(loc)
+
+    return first
+
+  def typecheck(self, expected: Typ, actual: Typ, loc: Loc) -> None:
+    if expected == actual:
+      return
+
+    self.unit.report(
+      f'expected type "{expected}", got "{actual}"',
+      loc
+    )
+
+  def pp_return(self, loc: Loc) -> None:
+    ret: Typ = self.typ.ret
+
+    if self.token(';'):
+      self.code.ret_void()
+      self.typecheck(ret, VoidTyp(), loc)
+      return
+    
+    e = self.pp_expression()
+    self.expect_token(';')
+
+    self.code.ret()
+    self.typecheck(ret, e.typ, e.loc)
+
+  def jump_statement(self) -> bool:
+    if self.token('return'):
+      self.pp_return(self.bck.loc)
+      return True
+
+    # TODO: add other jump statements
+    return False
+
+  def statement(self) -> bool:
+    if self.jump_statement():
+      return True
+
+    # TODO: add the other statements
+    #       and remember that expression
+    #       must be called with `is_stmt=True`
+    #       to avoid ambiguity of `decl, decl, ...`
+    #       vs `expr, expr, ...`
+    return False
+
+  def declaration(self) -> bool:
+    # TODO
+    return False
+
+  def decl_or_statement(self) -> None:
+    if self.statement():
+      return
+
+    self.expect_matching(
+      self.declaration(),
+      'expected either declaration or statement'
+    )
+
+  def expect_matching(self, matching: bool, error_message: str) -> None:
+    if matching:
+      return
+
+    self.unit.report(
+      f'{error_message}, matched token "{self.cur.kind}"',
+      self.cur.loc
+    )
+    raise ParsingError()
+
+  # "pp" stands for "parse and process"
+  # which means that function will for first
+  # parse the next tokens 
+  def pp_fnbody(self) -> None:
+    while self.has_token():
+      self.decl_or_statement()
 
   def process(self) -> None:
-    self.parse_and_gen_block(cast(
-      CompoundNode, self.node['body']
-    ))
+    self.tokens = cast(CompoundNode, self.node['body']).tokens
 
-    self.code.ret_void()
+    # an empty body may make the parsing functions
+    # to raise errors because they need at least one token
+    # to work with
+    if len(self.tokens) > 0:
+      self.pp_fnbody()
+
+    # TODO: check if the function returned

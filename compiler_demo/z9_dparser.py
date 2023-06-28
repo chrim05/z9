@@ -23,32 +23,6 @@ TYPE_SPECS = (
   '_Complex', '_Imaginary'
 )
 
-def recoverable(func):
-  '''
-  this is a decorator for parsing methods of DParser;
-  it becomes useful to easily restore/recover
-  previous branch index when the parsing function
-  fails, basically when returns `None`, then we know
-  that it may moved advanced the index to next tokens,
-  but if it failed, we need to come back to the original tokens index
-  that there was before calling the parsing function
-  '''
-
-  def wrapper(*args, **kwargs):
-    this = args[0]
-
-    this.clone_branch()
-    result = func(*args, **kwargs)
-
-    if result is None:
-      this.discard_branch()
-    else:
-      this.merge_branch()
-
-    return result
-
-  return wrapper
-
 class DParser:
   '''
   Lazy parser for declarations, from:
@@ -62,18 +36,10 @@ class DParser:
   def __init__(self, unit) -> None:
     from unit import TranslationUnit
     self.unit: TranslationUnit = unit
-    self.branches: list[int] = [0]
+    self.index: int = 0
     # i just assign it with a placeholder, because it will be always
     # overwritten
     self.current_dspecs: MultipleNode = MultipleNode(self.cur.loc)
-
-  @property
-  def index(self) -> int:
-    return self.branches[-1]
-
-  @index.setter
-  def index(self, value: int) -> None:
-    self.branches[-1] = value
 
   @property
   def cur(self) -> Token:
@@ -81,7 +47,7 @@ class DParser:
 
   def tok(self, offset: int) -> Token:
     if not self.has_token(offset):
-      return Token('eof', '\0', self.unit.tokens[-1].loc)
+      return Token('eof', None, self.unit.tokens[-1].loc)
 
     return self.unit.tokens[self.index + offset]
 
@@ -103,15 +69,6 @@ class DParser:
 
   def identifier(self) -> Token | None:
     return self.token('id')
-
-  def clone_branch(self) -> None:
-    self.branches.append(self.index)
-
-  def discard_branch(self) -> None:
-    self.branches.pop()
-
-  def merge_branch(self) -> None:
-    self.index = self.branches.pop()
 
   def expect_token(self, kind: str) -> Token:
     token: Token | None = self.token(kind)
@@ -963,7 +920,7 @@ class DParser:
       return node
 
     self.unit.report(
-      f'unexpected token "{self.cur.kind}", {error_message}',
+      f'{error_message}, matched token "{self.cur.kind}"',
       self.cur.loc
     )
     raise ParsingError()

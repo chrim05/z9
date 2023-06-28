@@ -90,7 +90,10 @@ char* nth(size_t index) {
 //     
 // }
 
-int add(int a, int b) { return a + b; }
+int add(int a, int b) {
+    // return a + b;
+    return 10;
+}
 
 // int x;
 // short x = 1;
