@@ -66,13 +66,13 @@ class TranslationUnit:
 
   def mrgen(self) -> None:
     from z9_mrgen import MrGen
-    from data import SemaTable
+    from data import SymTable
 
     if self.failed:
       return
 
     g = MrGen(self)
-    self.tab: SemaTable = SemaTable(self)
+    self.tab: SymTable = SymTable(self)
 
     g.gen_whole_unit()
 

@@ -342,7 +342,7 @@ class Typ:
   def __eq__(self, other: object) -> bool:
     typs = [type(self), type(other)]
 
-    if LitIntTyp in typs and IntTyp in typs:
+    if MetaIntTyp in typs and IntTyp in typs:
       return True
 
     if PoisonedTyp in typs:
@@ -359,9 +359,9 @@ class Typ:
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
 
-class LitIntTyp(Typ):
+class MetaIntTyp(Typ):
   def __repr__(self) -> str:
-    return f'literal int'
+    return f'@meta_t<int>'
 
 class IntTyp(Typ):
   def __init__(self, kind: str, is_signed: bool) -> None:
@@ -475,51 +475,52 @@ class PoisonedTyp(Typ):
     return '?'
 
 class Val:
-  def __init__(self, typ: Typ, value: object, loc: Loc) -> None:
+  def __init__(self, typ: Typ, meta: object, loc: Loc) -> None:
     self.typ: Typ = typ
-    self.value: object = value
+    self.meta: object = meta
     self.loc: Loc = loc
+
+  def is_meta(self) -> bool:
+    return self.meta is not None
 
   def __eq__(self, other: object) -> bool:
     if not isinstance(other, Val):
       return False
 
-    raise NotImplementedError(type(self).__name__)
+    return (
+      self.typ == other.typ and
+      self.meta == other.meta
+    )
 
   def __repr__(self) -> str:
-    if self.value is None:
+    if self.meta is None:
       return '@undef'
 
-    return repr(self.value)
+    return repr(self.meta)
 
 POISONED_LOC = Loc('<poisoned-file.z9>', 0, 0)
 POISONED_VAL = Val(PoisonedTyp(), None, POISONED_LOC)
 
-def void_val(loc: Loc):
-  return Val(VoidTyp(), None, loc)
-
 class Symbol:
-  def __init__(self, typ: Typ) -> None:
-    self.typ: Typ = typ
-
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
 
 class ExternFnSymbol(Symbol):
+  def __init__(self, node: Node) -> None:
+    self.node: Node = node
+
   def __repr__(self) -> str:
-    return f'ExternFnSymbol({self.typ})'
+    return f'ExternFnSymbol({self.node})'
 
 class FnSymbol(Symbol):
   def __init__(self, fn) -> None:
-    super().__init__(fn.typ)
-
     from z9_mrgen import FnMrGen
     self.fn: FnMrGen = fn
 
   def __repr__(self) -> str:
     return f'FnSymbol({self.fn.code})'
 
-class SemaTable:
+class SymTable:
   def __init__(self, unit) -> None:
     from unit import TranslationUnit
 
@@ -566,17 +567,35 @@ class SemaTable:
       f'{repr(name)} -> {m}' for name, m in self.members.items()
     )
 
-from enum import IntEnum
+from enum import IntEnum, auto
 
 class MidOpcode(IntEnum):
-  RET_VOID = 0
-  RET      = 1
-  LOAD_LIT = 2
+  RET_VOID        = auto()
+  RET             = auto()
+  LOAD_META_VALUE = auto()
+  LOAD_NAME       = auto()
+  ADD             = auto()
+  SUB             = auto()
+  MUL             = auto()
+  REM             = auto()
+  DIV             = auto()
+  SHL             = auto()
+  SHR             = auto()
+  LT              = auto()
+  GT              = auto()
+  LET             = auto()
+  GET             = auto()
+  EQ              = auto()
+  NEQ             = auto()
+  AND             = auto()
+  XOR             = auto()
+  OR              = auto()
 
 class MidInstr:
-  def __init__(self, op: MidOpcode, ex: object) -> None:
+  def __init__(self, op: MidOpcode, ex: object, loc: Loc) -> None:
     self.op: MidOpcode = op
     self.ex: object = ex
+    self.loc: Loc = loc
 
   def __repr__(self) -> str:
     if self.ex is None:
@@ -588,19 +607,44 @@ class MidRepr:
   def __init__(self) -> None:
     self.instructions: list[MidInstr] = []
 
-  def emit(self, op: MidOpcode, ex: object = None) -> None:
+  def emit(self, l: Loc, op: MidOpcode, ex: object = None) -> None:
     self.instructions.append(MidInstr(
-      op, ex
+      op, ex, l
     ))
 
-  def ret_void(self) -> None:
-    self.emit(MidOpcode.RET_VOID)
+  def ret_void(self, l: Loc) -> None:
+    self.emit(l, MidOpcode.RET_VOID)
 
-  def ret(self) -> None:
-    self.emit(MidOpcode.RET)
+  def ret(self, l: Loc) -> None:
+    self.emit(l, MidOpcode.RET)
 
-  def load_lit(self, lit: Val) -> None:
-    self.emit(MidOpcode.LOAD_LIT, lit)
+  def load_metavalue(self, l: Loc, val: Val) -> None:
+    self.emit(l, MidOpcode.LOAD_META_VALUE, val)
+
+  def load_name(self, l: Loc, name: str) -> None:
+    self.emit(l, MidOpcode.LOAD_NAME, name)
+
+  def emit_op(self, l: Loc, op: str) -> None:
+    opcode = {
+      '+': MidOpcode.ADD,
+      '-': MidOpcode.SUB,
+      '*': MidOpcode.MUL,
+      '%': MidOpcode.REM,
+      '/': MidOpcode.DIV,
+      '<<': MidOpcode.SHL,
+      '>>': MidOpcode.SHR,
+      '<': MidOpcode.LT,
+      '>': MidOpcode.GT,
+      '<=': MidOpcode.LET,
+      '>=': MidOpcode.GET,
+      '==': MidOpcode.EQ,
+      '!=': MidOpcode.NEQ,
+      '&': MidOpcode.AND,
+      '^': MidOpcode.XOR,
+      '|': MidOpcode.OR,
+    }[op]
+
+    self.emit(l, opcode)
 
   def __repr__(self) -> str:
     return '\n  ' + f'\n  '.join(

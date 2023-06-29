@@ -1,0 +1,45 @@
+#include <stdint.h>
+#include <stdbool.h>
+
+@use_feature strict_rules;
+
+// importing `string_t` from package module `string`
+@import { string_t } = string;
+@import io;
+@import num;
+
+typedef struct {
+  string_t name;
+  uint8_t  age;
+
+  @this_t new(string_t name, uint8_t age) static {
+    return (@this_t) {
+      .name = name,
+      .age = age,
+    };
+  }
+
+  bool is_adult() const {
+    return .age >= 18;
+  }
+
+  string_t to_string() const {
+    return @"person_t\{.name = {.name}, .age = {.age}\}";
+  }
+} person_t;
+
+void main() {
+  const name = io.input("peek a name: ");
+  uint8_t age = @undef;
+  
+  // asking for the age until we
+  // get a valid one
+  do
+    @catch (num.parse<uint8_t>(io.input("peek an age: "), &age))
+      continue;
+  while (false);
+
+  const you = person_t.new(name, age);
+
+  io.println(@"you look like this in memory: {you}");
+}

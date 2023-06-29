@@ -19,3 +19,5 @@
 // * (maybe) the use of `long` is an error
 //   since its size is always ambiguous,
 //   the error should advice to use `long long` instead
+//
+// * switch statements must follow the new syntax `case .. {}`
