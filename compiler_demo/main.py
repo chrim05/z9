@@ -13,4 +13,9 @@ t.dparse()
 t.mrgen()
 t.dump_tab()
 
+print('\n------- typed:\n')
+
+t.mrchip()
+t.dump_tab()
+
 t.print_diagnostic()

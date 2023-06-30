@@ -342,8 +342,8 @@ class Typ:
   def __eq__(self, other: object) -> bool:
     typs = [type(self), type(other)]
 
-    if MetaIntTyp in typs and IntTyp in typs:
-      return True
+    # if MetaIntTyp in typs and IntTyp in typs:
+    #   return True
 
     if PoisonedTyp in typs:
       return True
@@ -359,9 +359,12 @@ class Typ:
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
 
-class MetaIntTyp(Typ):
+class LitIntTyp(Typ):
+  def is_eq(self, other: 'LitIntTyp') -> bool:
+    return True
+
   def __repr__(self) -> str:
-    return f'@meta_t<int>'
+    return f'literal int'
 
 class IntTyp(Typ):
   def __init__(self, kind: str, is_signed: bool) -> None:
@@ -494,19 +497,25 @@ class Val:
 
   def __repr__(self) -> str:
     if self.meta is None:
-      return '@undef'
+      return f'({self.typ} @undef)'
 
-    return repr(self.meta)
+    return f'({self.typ} {repr(self.meta)})'
 
 POISONED_LOC = Loc('<poisoned-file.z9>', 0, 0)
 POISONED_VAL = Val(PoisonedTyp(), None, POISONED_LOC)
 
 class Symbol:
+  def __init__(self) -> None:
+    # filled by mrchip
+    self.typ: Typ
+
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
 
 class ExternFnSymbol(Symbol):
   def __init__(self, node: Node) -> None:
+    super().__init__()
+
     self.node: Node = node
 
   def __repr__(self) -> str:
@@ -514,11 +523,18 @@ class ExternFnSymbol(Symbol):
 
 class FnSymbol(Symbol):
   def __init__(self, fn) -> None:
+    super().__init__()
+
     from z9_mrgen import FnMrGen
     self.fn: FnMrGen = fn
 
   def __repr__(self) -> str:
     return f'FnSymbol({self.fn.code})'
+
+class LocalSymbol(Symbol):
+  def __init__(self, i: 'FinIndex', typ: Typ) -> None:
+    self.i: FinIndex = i
+    self.typ: Typ = typ
 
 class SymTable:
   def __init__(self, unit) -> None:
@@ -527,6 +543,13 @@ class SymTable:
     self.unit: TranslationUnit = unit
     self.members: dict[str, Symbol | tuple[Node, bool]] = {}
     self.heading_decls: dict[str, list[Node]] = {}
+
+  def copy(self) -> 'SymTable':
+    s = SymTable(self.unit)
+    s.members = self.members.copy()
+    s.heading_decls = self.heading_decls.copy()
+
+    return s
 
   def is_weak(self, name: str) -> bool:
     return cast(tuple, self.members[name])[1]
@@ -562,6 +585,19 @@ class SymTable:
 
     self.members[name] = (value, is_weak)
 
+  def get_member(self, name: str) -> Symbol | None:
+    if name not in self.members:
+      return None
+
+    return cast(Symbol, self.members[name])
+
+  def declare_local(self, name: str, i: 'FinIndex', typ: Typ, loc: Loc) -> None:
+    if name in self.members and isinstance(self.members[name], LocalSymbol):
+      self.unit.report(f'local name "{name}" already declared', loc)
+      return
+
+    self.members[name] = LocalSymbol(i, typ)
+
   def __repr__(self) -> str:
     return '\n\n'.join(
       f'{repr(name)} -> {m}' for name, m in self.members.items()
@@ -569,31 +605,34 @@ class SymTable:
 
 from enum import IntEnum, auto
 
-class MidOpcode(IntEnum):
-  RET_VOID        = auto()
-  RET             = auto()
-  LOAD_META_VALUE = auto()
-  LOAD_NAME       = auto()
-  ADD             = auto()
-  SUB             = auto()
-  MUL             = auto()
-  REM             = auto()
-  DIV             = auto()
-  SHL             = auto()
-  SHR             = auto()
-  LT              = auto()
-  GT              = auto()
-  LET             = auto()
-  GET             = auto()
-  EQ              = auto()
-  NEQ             = auto()
-  AND             = auto()
-  XOR             = auto()
-  OR              = auto()
+class Opcode(IntEnum):
+  RET_VOID         = auto()
+  RET              = auto()
+  LOAD_META_VALUE  = auto()
+  LOAD_NAME        = auto()
+  ADD              = auto()
+  SUB              = auto()
+  MUL              = auto()
+  REM              = auto()
+  DIV              = auto()
+  SHL              = auto()
+  SHR              = auto()
+  LT               = auto()
+  GT               = auto()
+  LET              = auto()
+  GET              = auto()
+  EQ               = auto()
+  NEQ              = auto()
+  AND              = auto()
+  XOR              = auto()
+  OR               = auto()
+  LOCAL            = auto()
+  LOAD_PTR         = auto()
+  STORE_NEXT_PARAM = auto()
 
 class MidInstr:
-  def __init__(self, op: MidOpcode, ex: object, loc: Loc) -> None:
-    self.op: MidOpcode = op
+  def __init__(self, op: Opcode, ex: object, loc: Loc) -> None:
+    self.op: Opcode = op
     self.ex: object = ex
     self.loc: Loc = loc
 
@@ -603,50 +642,120 @@ class MidInstr:
 
     return f'{self.op.name} {repr(self.ex)}'
 
-class MidRepr:
-  def __init__(self) -> None:
-    self.instructions: list[MidInstr] = []
+class FinIndex:
+  def __init__(self, i: int) -> None:
+    self.i: int = i
 
-  def emit(self, l: Loc, op: MidOpcode, ex: object = None) -> None:
+  def __repr__(self) -> str:
+    return f'%{self.i}'
+
+class FinInstr:
+  def __init__(self, op: Opcode, ex: Any, typ: Typ | None) -> None:
+    self.op: Opcode = op
+    self.ex: Any = ex
+    self.typ: Typ = typ # type: ignore[assignment]
+               # | None = typ
+
+    # filled by finrepr
+    self.idx: FinIndex
+
+  def __repr__(self) -> str:
+    r = ''
+
+    if self.typ is not None:
+      r += f'|{self.typ}| '
+
+    r += self.op.name
+
+    if self.ex is not None:
+      r += f' {repr(self.ex)}'
+
+    return r
+
+from bidict import bidict
+
+arithmetic_opcodes = bidict({
+  '+':  Opcode.ADD,
+  '-':  Opcode.SUB,
+  '*':  Opcode.MUL,
+  '%':  Opcode.REM,
+  '/':  Opcode.DIV,
+  '<<': Opcode.SHL,
+  '>>': Opcode.SHR,
+  '<':  Opcode.LT,
+  '>':  Opcode.GT,
+  '<=': Opcode.LET,
+  '>=': Opcode.GET,
+  '==': Opcode.EQ,
+  '!=': Opcode.NEQ,
+  '&':  Opcode.AND,
+  '^':  Opcode.XOR,
+  '|':  Opcode.OR,
+})
+
+class CodeRepr:
+  def __init__(self) -> None:
+    self.instructions: list = []
+
+  def __repr__(self) -> str:
+    r = '\n'
+
+    for label, i in enumerate(self.instructions):
+      r += f'  %{label} = {i}\n'
+
+    return r
+
+class MidRepr(CodeRepr):
+  def emit(self, l: Loc, op: Opcode, ex: object = None) -> None:
     self.instructions.append(MidInstr(
       op, ex, l
     ))
 
   def ret_void(self, l: Loc) -> None:
-    self.emit(l, MidOpcode.RET_VOID)
+    self.emit(l, Opcode.RET_VOID)
 
   def ret(self, l: Loc) -> None:
-    self.emit(l, MidOpcode.RET)
+    self.emit(l, Opcode.RET)
 
   def load_metavalue(self, l: Loc, val: Val) -> None:
-    self.emit(l, MidOpcode.LOAD_META_VALUE, val)
+    self.emit(l, Opcode.LOAD_META_VALUE, val)
 
   def load_name(self, l: Loc, name: str) -> None:
-    self.emit(l, MidOpcode.LOAD_NAME, name)
+    self.emit(l, Opcode.LOAD_NAME, name)
 
   def emit_op(self, l: Loc, op: str) -> None:
-    opcode = {
-      '+': MidOpcode.ADD,
-      '-': MidOpcode.SUB,
-      '*': MidOpcode.MUL,
-      '%': MidOpcode.REM,
-      '/': MidOpcode.DIV,
-      '<<': MidOpcode.SHL,
-      '>>': MidOpcode.SHR,
-      '<': MidOpcode.LT,
-      '>': MidOpcode.GT,
-      '<=': MidOpcode.LET,
-      '>=': MidOpcode.GET,
-      '==': MidOpcode.EQ,
-      '!=': MidOpcode.NEQ,
-      '&': MidOpcode.AND,
-      '^': MidOpcode.XOR,
-      '|': MidOpcode.OR,
-    }[op]
+    self.emit(l, arithmetic_opcodes[op])
 
-    self.emit(l, opcode)
+class FinRepr(CodeRepr):
+  def __getitem__(self, i: FinIndex) -> FinInstr:
+    return self.instructions[i.i]
 
-  def __repr__(self) -> str:
-    return '\n  ' + f'\n  '.join(
-      map(repr, self.instructions)
-    ) + '\n'
+  def emit(self, op: Opcode, typ: Typ | None, ex: Any) -> FinIndex:
+    self.instructions.append(i := FinInstr(
+      op, ex, typ
+    ))
+
+    i.idx = FinIndex(len(self.instructions) - 1)
+    return i.idx
+
+  def ret_void(self) -> None:
+    self.emit(Opcode.RET_VOID, None, None)
+
+  def ret(self, ex: Val | FinIndex) -> None:
+    self.emit(Opcode.RET, None, ex)
+
+  def local(self, typ: Typ) -> FinIndex:
+    return self.emit(Opcode.LOCAL, PointerTyp(typ), typ)
+
+  def typ(self, ex: Val | FinIndex) -> Typ:
+    if isinstance(ex, Val):
+      return ex.typ
+
+    return cast(Typ, self.instructions[ex.i].typ)
+
+  def load_ptr(self, ex: Val | FinIndex) -> FinIndex:
+    typ = cast(PointerTyp, self.typ(ex))
+    return self.emit(Opcode.LOAD_PTR, typ.pointee, ex)
+
+  def store_next_param(self, target: FinIndex) -> None:
+    self.emit(Opcode.STORE_NEXT_PARAM, None, target)

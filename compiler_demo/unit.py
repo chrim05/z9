@@ -75,6 +75,18 @@ class TranslationUnit:
     self.tab: SymTable = SymTable(self)
 
     g.gen_whole_unit()
+    self.maybe_mark_as_failed()
+
+  def mrchip(self) -> None:
+    from z9_mrchip import MrChip
+    from data import SymTable
+
+    if self.failed:
+      return
+
+    c = MrChip(self)
+    c.process_whole_tab()
+    self.maybe_mark_as_failed()
 
   def dparse(self) -> None:
     from z9_dparser import DParser
@@ -97,11 +109,13 @@ class TranslationUnit:
       d.struct_or_union_declaration_list_into(
         self.root, expect_braces=False, allow_method_mods=False
       )
-
-      if len(self.errors) > 0:
-        self.failed = True
     except ParsingError:
       self.failed = True
+
+    self.maybe_mark_as_failed()
+
+  def maybe_mark_as_failed(self) -> None:
+    self.failed = self.failed or len(self.errors) > 0
 
   def dump_root(self) -> None:
     if self.failed:
