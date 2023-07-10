@@ -118,8 +118,9 @@ class MrGen:
           pass
 
         fn = self.functions.pop()
-
-        return FnSymbol(fn)
+        decl_name_token = cast(Token, get_declaration_name(node))
+        name = cast(str, decl_name_token.value)
+        return FnSymbol(name, decl_name_token.loc, fn)
 
       case _:
         raise UnreachableError()
@@ -169,7 +170,7 @@ class FnMrGen:
     self.gen: MrGen = gen
     # self.typ: FnTyp = typ
     self.node: SyntaxNode = node
-    self.code: MidRepr = MidRepr()
+    self.code: MidCode = MidCode()
     
     self.tokens: list[Token]
     self.index: int = 0
@@ -254,8 +255,8 @@ class FnMrGen:
 
   def pg_unary_expression(self) -> None:
     if self.token('++', '--'):
-      self.pg_unary_expression()
       # TODO: gen code for these operators
+      self.pg_unary_expression()
       return
 
     if self.unary_operators():
@@ -279,13 +280,12 @@ class FnMrGen:
 
     match p.kind:
       case 'num':
-        v = Val(
+        constant = cast(int, self.bck.value)
+        self.code.load(p.loc, Val(
           LitIntTyp(),
-          cast(int, self.bck.value),
-          self.bck.loc
-        )
-
-        self.code.load_metavalue(p.loc, v)
+          constant,
+          ll.Constant(LIT_INT_LLTYP, constant)
+        ))
 
       case 'id':
         self.code.load_name(p.loc, cast(str, p.value))
@@ -316,7 +316,7 @@ class FnMrGen:
       op = self.bck
 
       parse_fn()
-      self.code.emit_op(op.loc, op.kind)
+      self.code.emit(ARITHMETIC_OPCODES[op.kind], op.loc)
 
   def pg_conditional_expression(self) -> None:
     # TODO: implement logical operators
@@ -354,12 +354,10 @@ class FnMrGen:
       ('|',), lambda: self.pg_binary_expression(*xor)
     )
 
-    # the top of the chain
-    self.pg_binary_expression(
-      *or_
-    )
-
     # TODO: while self.token('?')
+    
+    # the top of the chain
+    self.pg_binary_expression(*or_)
 
   def pg_assignment_expression(self) -> None:
     self.pg_conditional_expression()
@@ -382,8 +380,8 @@ class FnMrGen:
       return
     
     self.pg_expression()
-    self.expect_token(';')
     self.code.ret(l)
+    self.expect_token(';')
 
   def jump_statement(self) -> bool:
     if self.token('return'):

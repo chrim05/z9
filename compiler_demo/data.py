@@ -1,4 +1,5 @@
 from typing import Callable, Any, cast
+from llvmlite import ir as ll
 
 META_TYPES = [
   'this_t', 'info_t',
@@ -322,6 +323,10 @@ class Typ:
     is_const: bool = False
   ) -> None:
     self.is_const: bool = is_const
+  
+  # in bytes
+  def size(self) -> int:
+    raise NotImplementedError(type(self).__name__)
 
   def quals(self) -> list[str]:
     r = []
@@ -363,6 +368,9 @@ class LitIntTyp(Typ):
   def is_eq(self, other: 'LitIntTyp') -> bool:
     return True
 
+  def size(self) -> int:
+    return 0
+
   def __repr__(self) -> str:
     return f'literal int'
 
@@ -372,6 +380,22 @@ class IntTyp(Typ):
 
     self.kind: str = kind
     self.is_signed: bool = is_signed
+  
+  def size(self) -> int:
+    match self.kind:
+      # TODO: change 'long' to
+      #       32 bit and allow
+      #       it to be 64 only on
+      #       linux-64
+      case 'long' | 'longlong':
+        return 8
+      
+      case 'int':   return 4
+      case 'short': return 2
+      case 'char':  return 1
+      
+      case _:
+        raise UnreachableError(self.kind)
 
   def is_eq(self, other: 'IntTyp') -> bool:
     return (
@@ -392,6 +416,9 @@ class VoidTyp(Typ):
   def __init__(self) -> None:
     super().__init__()
 
+  def size(self) -> int:
+    return 0
+
   def is_eq(self, other: 'VoidTyp') -> bool:
     return True
 
@@ -406,6 +433,9 @@ class PointerTyp(Typ):
     super().__init__()
 
     self.pointee: Typ = pointee
+
+  def size(self) -> int:
+    return 8
 
   def is_eq(self, other: 'PointerTyp') -> bool:
     return self.pointee == other.pointee
@@ -440,6 +470,9 @@ class FnTyp(Typ):
     self.params: list[Typ] = params
     self.pnames: list[Token | None] = pnames
 
+  def size(self) -> int:
+    return 0
+
   def is_eq(self, other: 'FnTyp') -> bool:
     return (
       self.ret == other.ret and
@@ -459,29 +492,63 @@ class ArrayTyp(Typ):
     super().__init__(pointee.is_const)
 
     self.pointee: Typ = pointee
-    self.size: Val = size
+    self.length: Val = size
+
+  def size(self) -> int:
+    return cast(int, self.length.meta) * self.pointee.size()
 
   def is_eq(self, other: 'ArrayTyp') -> bool:
     return (
       self.pointee == other.pointee and
-      self.size == other.size
+      self.length == other.length
     )
 
   def __repr__(self) -> str:
-    return f'{self.pointee}[{self.size}]'
+    return f'{self.pointee}[{self.length}]'
 
 class PoisonedTyp(Typ):
   def __init__(self) -> None:
     super().__init__()
 
+  def size(self) -> int:
+    return 0
+
   def __repr__(self) -> str:
     return '?'
 
+def typ_to_lltyp(typ: Typ) -> ll.Type:
+  if isinstance(typ, FnTyp):
+    return ll.FunctionType(
+      typ_to_lltyp(typ.ret),
+      [typ_to_lltyp(p) for p in typ.params]
+    )
+  
+  if isinstance(typ, IntTyp):
+    return ll.IntType(
+      8 * typ.size()
+    )
+  
+  if isinstance(typ, VoidTyp):
+    return ll.VoidType()
+  
+  raise UnreachableError(type(typ).__name__)
+
 class Val:
-  def __init__(self, typ: Typ, meta: object, loc: Loc) -> None:
+  def __init__(self, typ: Typ, meta: object = None, llv: ll.Value = ll.Value()) -> None:
     self.typ: Typ = typ
     self.meta: object = meta
-    self.loc: Loc = loc
+    self._llv: ll.Value = llv
+
+  @property
+  def llv(self) -> ll.Value:
+    if not self.is_meta():
+      return self._llv
+      
+    return ll.Constant(typ_to_lltyp(self.typ), self.meta)
+  
+  @llv.setter
+  def llv(self, llv: ll.Value) -> None:
+    self._llv = llv
 
   def is_meta(self) -> bool:
     return self.meta is not None
@@ -501,11 +568,12 @@ class Val:
 
     return f'({self.typ} {repr(self.meta)})'
 
-POISONED_LOC = Loc('<poisoned-file.z9>', 0, 0)
-POISONED_VAL = Val(PoisonedTyp(), None, POISONED_LOC)
+POISONED_VAL = Val(PoisonedTyp())
 
 class Symbol:
-  def __init__(self) -> None:
+  def __init__(self, name: str, loc: Loc) -> None:
+    self.name: str = name
+    self.loc: Loc = loc
     # filled by mrchip
     self.typ: Typ
 
@@ -514,7 +582,7 @@ class Symbol:
 
 class ExternFnSymbol(Symbol):
   def __init__(self, node: Node) -> None:
-    super().__init__()
+    super().__init__(node.name) # type: ignore
 
     self.node: Node = node
 
@@ -522,19 +590,20 @@ class ExternFnSymbol(Symbol):
     return f'ExternFnSymbol({self.node})'
 
 class FnSymbol(Symbol):
-  def __init__(self, fn) -> None:
-    super().__init__()
+  def __init__(self, name: str, loc: Loc, fn) -> None:
+    super().__init__(name, loc)
 
-    from z9_mrgen import FnMrGen
+    from z9_gen import FnMrGen
     self.fn: FnMrGen = fn
 
   def __repr__(self) -> str:
     return f'FnSymbol({self.fn.code})'
 
 class LocalSymbol(Symbol):
-  def __init__(self, i: 'FinIndex', typ: Typ) -> None:
-    self.i: FinIndex = i
+  def __init__(self, name: str, loc: Loc, typ: Typ, llv: ll.Value) -> None:
+    super().__init__(name, loc)
     self.typ: Typ = typ
+    self.llv: ll.Value = llv
 
 class SymTable:
   def __init__(self, unit) -> None:
@@ -591,81 +660,55 @@ class SymTable:
 
     return cast(Symbol, self.members[name])
 
-  def declare_local(self, name: str, i: 'FinIndex', typ: Typ, loc: Loc) -> None:
+  def declare_local(self, name: str, typ: Typ, llv: ll.Value, loc: Loc) -> None:
     if name in self.members and isinstance(self.members[name], LocalSymbol):
       self.unit.report(f'local name "{name}" already declared', loc)
       return
 
-    self.members[name] = LocalSymbol(i, typ)
+    self.members[name] = LocalSymbol(name, loc, typ, llv)
 
   def __repr__(self) -> str:
     return '\n\n'.join(
       f'{repr(name)} -> {m}' for name, m in self.members.items()
     )
 
+LIT_INT_LLTYP = ll.IntType(0)
+
 from enum import IntEnum, auto
 
 class Opcode(IntEnum):
-  RET_VOID         = auto()
-  RET              = auto()
-  LOAD_META_VALUE  = auto()
-  LOAD_NAME        = auto()
-  ADD              = auto()
-  SUB              = auto()
-  MUL              = auto()
-  REM              = auto()
-  DIV              = auto()
-  SHL              = auto()
-  SHR              = auto()
-  LT               = auto()
-  GT               = auto()
-  LET              = auto()
-  GET              = auto()
-  EQ               = auto()
-  NEQ              = auto()
-  AND              = auto()
-  XOR              = auto()
-  OR               = auto()
-  LOCAL            = auto()
-  LOAD_PTR         = auto()
-  STORE_NEXT_PARAM = auto()
+  RET_VOID  = auto()
+  RET       = auto()
+  LOAD_NAME = auto()
+  PUSH      = auto()
+  ADD       = auto()
+  SUB       = auto()
+  MUL       = auto()
+  REM       = auto()
+  DIV       = auto()
+  SHL       = auto()
+  SHR       = auto()
+  LT        = auto()
+  GT        = auto()
+  LET       = auto()
+  GET       = auto()
+  EQ        = auto()
+  NEQ       = auto()
+  AND       = auto()
+  XOR       = auto()
+  OR        = auto()
+  LOCAL     = auto()
+  LOAD_PTR  = auto()
+  STORE_PTR = auto()
 
-class MidInstr:
-  def __init__(self, op: Opcode, ex: object, loc: Loc) -> None:
+class Instr:
+  def __init__(self, op: Opcode, loc: Loc, ex: Any) -> None:
     self.op: Opcode = op
-    self.ex: object = ex
     self.loc: Loc = loc
-
-  def __repr__(self) -> str:
-    if self.ex is None:
-      return self.op.name
-
-    return f'{self.op.name} {repr(self.ex)}'
-
-class FinIndex:
-  def __init__(self, i: int) -> None:
-    self.i: int = i
-
-  def __repr__(self) -> str:
-    return f'%{self.i}'
-
-class FinInstr:
-  def __init__(self, op: Opcode, ex: Any, typ: Typ | None) -> None:
-    self.op: Opcode = op
     self.ex: Any = ex
-    self.typ: Typ = typ # type: ignore[assignment]
-               # | None = typ
-
-    # filled by finrepr
-    self.idx: FinIndex
 
   def __repr__(self) -> str:
-    r = ''
-
-    if self.typ is not None:
-      r += f'|{self.typ}| '
-
-    r += self.op.name
+    r = self.op.name
 
     if self.ex is not None:
       r += f' {repr(self.ex)}'
@@ -674,7 +717,7 @@ class FinInstr:
 
 from bidict import bidict
 
-arithmetic_opcodes = bidict({
+ARITHMETIC_OPCODES = bidict({
   '+':  Opcode.ADD,
   '-':  Opcode.SUB,
   '*':  Opcode.MUL,
@@ -693,69 +736,39 @@ arithmetic_opcodes = bidict({
   '|':  Opcode.OR,
 })
 
-class CodeRepr:
+class MidCode:
   def __init__(self) -> None:
-    self.instructions: list = []
+    self.instructions: list[Instr] = []
 
   def __repr__(self) -> str:
     r = '\n'
 
     for label, i in enumerate(self.instructions):
-      r += f'  %{label} = {i}\n'
+      r += f'  {label}: {i}\n'
 
     return r
 
-class MidRepr(CodeRepr):
-  def emit(self, l: Loc, op: Opcode, ex: object = None) -> None:
-    self.instructions.append(MidInstr(
-      op, ex, l
+  def emit(self, op: Opcode, loc: Loc, ex: Any = None) -> None:
+    self.instructions.append(Instr(
+      op, loc, ex
     ))
 
-  def ret_void(self, l: Loc) -> None:
-    self.emit(l, Opcode.RET_VOID)
+  def ret_void(self, loc: Loc) -> None:
+    self.emit(Opcode.RET_VOID, loc)
 
-  def ret(self, l: Loc) -> None:
-    self.emit(l, Opcode.RET)
+  def ret(self, loc: Loc) -> None:
+    self.emit(Opcode.RET, loc)
 
-  def load_metavalue(self, l: Loc, val: Val) -> None:
-    self.emit(l, Opcode.LOAD_META_VALUE, val)
+  def local(self, loc: Loc, typ: Typ) -> None:
+    self.emit(Opcode.LOCAL, loc, PointerTyp(typ))
 
-  def load_name(self, l: Loc, name: str) -> None:
-    self.emit(l, Opcode.LOAD_NAME, name)
+  def load_ptr(self, loc: Loc) -> None:
+    return self.emit(Opcode.LOAD_PTR, loc)
 
-  def emit_op(self, l: Loc, op: str) -> None:
-    self.emit(l, arithmetic_opcodes[op])
+  def load_name(self, loc: Loc, name: str) -> None:
+    # TODO: maybe change this to internally emit a
+    #       double instruction (load_name_addr + load_ptr)
+    return self.emit(Opcode.LOAD_NAME, loc, name)
 
-class FinRepr(CodeRepr):
-  def __getitem__(self, i: FinIndex) -> FinInstr:
-    return self.instructions[i.i]
-
-  def emit(self, op: Opcode, typ: Typ | None, ex: Any) -> FinIndex:
-    self.instructions.append(i := FinInstr(
-      op, ex, typ
-    ))
-
-    i.idx = FinIndex(len(self.instructions) - 1)
-    return i.idx
-
-  def ret_void(self) -> None:
-    self.emit(Opcode.RET_VOID, None, None)
-
-  def ret(self, ex: Val | FinIndex) -> None:
-    self.emit(Opcode.RET, None, ex)
-
-  def local(self, typ: Typ) -> FinIndex:
-    return self.emit(Opcode.LOCAL, PointerTyp(typ), typ)
-
-  def typ(self, ex: Val | FinIndex) -> Typ:
-    if isinstance(ex, Val):
-      return ex.typ
-
-    return cast(Typ, self.instructions[ex.i].typ)
-
-  def load_ptr(self, ex: Val | FinIndex) -> FinIndex:
-    typ = cast(PointerTyp, self.typ(ex))
-    return self.emit(Opcode.LOAD_PTR, typ.pointee, ex)
-
-  def store_next_param(self, target: FinIndex) -> None:
-    self.emit(Opcode.STORE_NEXT_PARAM, None, target)
+  def load(self, loc: Loc, v: Val) -> None:
+    return self.emit(Opcode.PUSH, loc, v)

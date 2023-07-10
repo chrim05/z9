@@ -595,7 +595,7 @@ class DParser:
     if (dad := self.parameter_list_declarator(dad)) is not None:
       pass # just to keep lines cleaner, they are really messy here
     elif (opener := self.token('(')) is not None:
-      if (dad := self.abstract_declarator()) is None:
+      if (dad := self.abstract_declarator(opener.loc)) is None:
         dad = SyntaxNode(opener.loc, 'EmptyParameterListAbstractDeclarator', {})
 
       self.expect_token(')')
@@ -610,7 +610,7 @@ class DParser:
 
       if (new_dd := self.parameter_list_declarator(dad)) is not None:
         dd = new_dd
-      elif (new_dd := self.array_declarator(dd)) is not None:
+      elif (new_dd := self.array_declarator(dad)) is not None:
         dd = new_dd
       else:
         break
@@ -692,7 +692,7 @@ class DParser:
     return dd
 
   @recoverable
-  def array_declarator(self, dd: Node, midfix: str = '') -> Node | None:
+  def array_declarator(self, dd: Node | None, midfix: str = '') -> Node | None:
     if (opener := self.token('[')) is None:
       return None
 
@@ -708,7 +708,7 @@ class DParser:
     })
 
   @recoverable
-  def parameter_list_declarator(self, dd: Node) -> Node | None:
+  def parameter_list_declarator(self, dd: Node | None) -> Node | None:
     if (opener := self.token('(')) is None:
       return None
 

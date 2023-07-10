@@ -1,17 +1,23 @@
 from data import *
-from json import dumps
+from llvmlite import ir as ll
+from llvmlite.binding import targets as lltargets, initialize as llinitialize
+from subprocess import run as runprocess
+from sys import argv
+
+import llvmlite
+llvmlite.show_reports = True
+llvmlite.raise_reports = False
 
 class TranslationUnit:
   def __init__(self, filepath: str) -> None:
-    from subprocess import run
     from tempfile import NamedTemporaryFile
     from rich.console import Console
 
     self.console = Console(emoji=False)
 
     preprocessed_filepath: str = NamedTemporaryFile().name
-    clang_cpp = run(
-      f'clang-cpp.exe -std=c99 -nostdinc -Iinclude {filepath} -o {preprocessed_filepath}'
+    clang_cpp = runprocess(
+      f'clang-cpp.exe -std=c99 -nostdinc -Iinclude "{filepath}" -o "{preprocessed_filepath}"'
     ).returncode
 
     self.failed = clang_cpp != 0
@@ -25,8 +31,34 @@ class TranslationUnit:
     self.filepath: str = filepath
     self.source: str = open(preprocessed_filepath, 'r').read()
 
+    llinitialize()
+
+    self.llmod: ll.Module = ll.Module(filepath)
+    self.llmod.triple = lltargets.get_process_triple()
+
   def fix_message(self, m: str) -> str:
-    return m.replace('[', '\[')
+    return m.replace('[', '\\[')
+
+  def compile(self) -> None:
+    if self.failed:
+      return
+    
+    if '-exe' not in argv:
+      return
+    
+    from os.path import splitext
+    from os import remove as removefile
+    
+    lloutput = splitext(self.filepath)[0] + '.ll'
+    exeoutput = splitext(self.filepath)[0] + '.exe'
+
+    open(lloutput, 'w').write(repr(self.llmod))
+
+    self.failed = runprocess(
+      f'clang.exe "{lloutput}" -o "{exeoutput}" -Wno-override-module'
+    ).returncode != 0
+
+    removefile(lloutput)
 
   def print_diagnostic(self) -> None:
     dprint = lambda m, l, color: \
@@ -65,7 +97,7 @@ class TranslationUnit:
       self.tokens.append(token)
 
   def mrgen(self) -> None:
-    from z9_mrgen import MrGen
+    from z9_gen import MrGen
     from data import SymTable
 
     if self.failed:
@@ -78,8 +110,7 @@ class TranslationUnit:
     self.maybe_mark_as_failed()
 
   def mrchip(self) -> None:
-    from z9_mrchip import MrChip
-    from data import SymTable
+    from z9_chip import MrChip
 
     if self.failed:
       return
@@ -131,4 +162,12 @@ class TranslationUnit:
 
     self.console.print(
       self.fix_message(repr(self.tab))
+    )
+
+  def dump_llmod(self) -> None:
+    if self.failed:
+      return
+
+    self.console.print(
+      self.fix_message(repr(self.llmod))
     )

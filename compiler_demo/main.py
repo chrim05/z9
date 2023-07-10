@@ -1,8 +1,11 @@
 from unit import TranslationUnit
-from json import dumps
 from sys  import argv
 
-f = 'samples/simple.z9' if len(argv) == 1 else argv[1]
+if len(argv) == 1 or argv[1].startswith('-'):
+  f = 'samples/simple.z9'
+else:
+  f = argv[1]
+
 t = TranslationUnit(f)
 
 t.lex()
@@ -13,9 +16,10 @@ t.dparse()
 t.mrgen()
 t.dump_tab()
 
-print('\n------- typed:\n')
+print('\n-------\n')
 
 t.mrchip()
-t.dump_tab()
+t.dump_llmod()
 
 t.print_diagnostic()
+t.compile()

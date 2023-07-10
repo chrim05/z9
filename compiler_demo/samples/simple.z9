@@ -90,8 +90,8 @@ char* nth(size_t index) {
 //     
 // }
 
-int add(int a, int b) {
-    return a * (b + 2);
+void main(int a) {
+    return 0;
 }
 
 // int x;
