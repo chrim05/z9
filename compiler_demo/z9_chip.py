@@ -250,26 +250,34 @@ class MrChip:
       # is always `int`
       return IntTyp('int', True)
     
-    se = expected.size()
-    sa = actual.size()
+    se = expected.bit_size()
+    sa = actual.bit_size()
     
     # TODO: ban this when inside `strict_rules`
     if typs == [IntTyp, IntTyp] and sa != se:
+      if expected.kind == '_Bool': # type:ignore
+        actual_val.llv = self.code.icmp_signed(
+          '==',
+          actual_val.llv,
+          ll.Constant(typ_to_lltyp(actual_val.typ), 0)
+        )
+        return expected
+      
       actual_val.llv = self.llcast(actual_val.llv, typ_to_lltyp(expected), sa > se)
       return expected
-
+    
     return actual
 
-  def typcheck(self, expected: Typ, actual_val: Val, l: Loc) -> Typ:
+  def typcheck(self, expected: Typ, actual_val: Val, l: Loc) -> tuple[bool, Typ]:
     actual = self.maybe_coerce(expected, actual_val)
 
     if expected == actual:
-      return actual
+      return (True, actual)
 
     self.unit.report(
       f'expected type "{expected}", got "{actual}"', l
     )
-    return expected
+    return (False, expected)
 
   def maybe_coerce_binary(self, l_val: Val, r_val: Val) -> tuple[Typ, Typ]:
     l, r = l_val.typ, r_val.typ
@@ -285,8 +293,8 @@ class MrChip:
 
       return (get_t(IntTyp), get_t(IntTyp))
     
-    ls = l.size()
-    rs = r.size()
+    ls = l.bit_size()
+    rs = r.bit_size()
 
     if typs == [IntTyp, IntTyp] and ls != rs:
       if ls > rs:
@@ -300,18 +308,18 @@ class MrChip:
 
     return (l, r)
 
-  def typcheck_binary(self, l_val: Val, r_val: Val, opcode: Opcode, loc: Loc) -> tuple[Val, Val]:
+  def typcheck_binary(self, l_val: Val, r_val: Val, opcode: Opcode, loc: Loc) -> tuple[bool, Val, Val]:
     l, r = self.maybe_coerce_binary(l_val, r_val)
 
     if l == r:
-      return (l_val, r_val)
+      return (True, l_val, r_val)
 
     op = ARITHMETIC_OPCODES.inverse[opcode]
     self.unit.report(
       f'types "{l}" and "{r}" are not compatible for binary operator "{op}"',
       loc
     )
-    return (l_val, r_val)
+    return (True, l_val, r_val)
 
   def get_one_runtime_typ(self, l: Val, r: Val) -> Typ:
     if not l.is_meta():
@@ -373,30 +381,37 @@ class MrChip:
       self.push(binary)
       return
 
-    l, r = self.typcheck_binary(l, r, op, loc)
+    is_ok, l, r = self.typcheck_binary(l, r, op, loc)
     op_typ = self.get_one_runtime_typ(l, r)
-    llv = self.opcode_to_llop(op)(l.llv, r.llv)
+    if is_ok:
+      llv = self.opcode_to_llop(op)(l.llv, r.llv)
+    else:
+      llv = llundef(op_typ)
 
     self.push(Val(op_typ, None, llv))
 
-  # the boolean returned indicates whether
-  # the processed instruction was a terminator
-  # such as `ret`, `jump`, etc...
-  def process_instr(self, i: Instr) -> bool:
+  def process_instr(self, block_labels: dict[int, ll.Block], label: int, i: Instr) -> None:
     fntyp: FnTyp = cast(FnTyp, self.sym.typ)
+
+    if label in block_labels:
+      new_block = block_labels.pop(label)
+      self.jump_to_new_block_if_needed(new_block)
+
+      self.code = ll.IRBuilder(new_block)
 
     match i.op:
       case Opcode.RET_VOID:
-        self.typcheck(fntyp.ret, Val(VoidTyp()), i.loc)
-        self.code.ret_void()
-        return True
+        is_ok, _ = self.typcheck(fntyp.ret, Val(VoidTyp()), i.loc)
+
+        if is_ok:
+          self.code.ret_void()
 
       case Opcode.RET:
         v = self.pop()
-        v.typ = self.typcheck(fntyp.ret, v, i.loc)
+        is_ok, v.typ = self.typcheck(fntyp.ret, v, i.loc)
 
-        self.code.ret(v.llv)
-        return True
+        if is_ok:
+          self.code.ret(v.llv)
 
       # TODO: implement also operators
       #       for user-defined types
@@ -416,13 +431,68 @@ class MrChip:
           llv = self.code.load(m.llv)
           self.push(Val(m.typ, None, llv))
       
+      case Opcode.JUMP_IF_FALSE:
+        continue_block, jump_block = self.create_fork_blocks(label + 1, i.ex)
+        self.emit_cbranch(continue_block, jump_block, i.loc)
+        self.code = ll.IRBuilder(continue_block)
+
+        block_labels[i.ex] = jump_block
+
+      case Opcode.JUMP:
+        jump_block = self.llfn.append_basic_block(f'L{i.ex}')
+        block_labels[i.ex] = jump_block
+
       case Opcode.PUSH:
         self.push(i.ex)
 
       case _:
         raise UnreachableError(repr(i.op))
+
+  def create_fork_blocks(self, label1: int, label2: int) -> tuple[ll.Block, ll.Block]:
+    l1, l2 = f'L{label1}', f'L{label2}'
     
-    return False
+    '''
+    block1 = None
+    block2 = None
+
+    for block in self.llfn.blocks:
+      if block.name == l1:
+        block1 = block
+      elif block.name == l2:
+        block2 = block
+
+    if block1 is None:
+      block1 = self.llfn.append_basic_block(l1)
+    
+    if block2 is None:
+      block2 = self.llfn.append_basic_block(l2)
+    '''
+
+    block1 = self.llfn.append_basic_block(l1)
+    block2 = self.llfn.append_basic_block(l2)
+
+    return block1, block2
+
+  def emit_cbranch(self, continue_block: ll.Block, jump_block: ll.Block, loc: Loc) -> None:
+    # TODO: coerce `v` to _Bool
+    #       and ban it with `strict_rules`
+    v = self.pop()
+    is_ok, v.typ = self.typcheck(IntTyp('_Bool', True), v, loc)
+
+    if not is_ok:
+      return
+    
+    self.code.cbranch(v.llv, continue_block, jump_block)
+
+  def jump_to_new_block_if_needed(self, new_block: ll.Block) -> None:
+    # probably never possible
+    if self.code.block is None:
+      return
+
+    if self.code.block.is_terminated:
+      return
+    
+    self.code.branch(new_block)
 
   def config_fn(self, sym: FnSymbol) -> FnTyp:
     sym.typ = fntyp = cast(FnTyp, self.get_declaration_typ(sym.fn.node))
@@ -459,30 +529,33 @@ class MrChip:
         pname.loc
       )
 
-    midcode = sym.fn.code.instructions
-    is_terminator = False
-    for idx, i in enumerate(midcode):
-      is_last = idx == len(midcode) - 1
-      is_terminator = self.process_instr(i)
+    block_labels: dict[int, ll.Block] = {}
 
-      if is_terminator and not is_last:
-        self.unit.warn('dead code', midcode[idx + 1].loc)
-        break
+    for label, i in enumerate(sym.fn.code.instructions):
+      self.process_instr(block_labels, label, i)
     
-    if not is_terminator:
-      self.insert_implicit_return()
-
+    if len(block_labels) == 1:
+      _, block = block_labels.popitem()
+      self.llfn.blocks.remove(block)
+    
+    assert len(block_labels) == 0
+    
+    self.emit_implicit_return()
     self.pop_mem()
   
-  def insert_implicit_return(self) -> None:
+  def emit_implicit_return(self) -> None:
+    # probably never possible
+    if self.code.block is None:
+      return
+    
+    if self.code.block.is_terminated:
+      return
+
     if isinstance(self.fntyp.ret, VoidTyp):
       self.code.ret_void()
       return
     
-    self.code.ret(ll.Constant(
-      typ_to_lltyp(self.fntyp.ret),
-      ll.Undefined
-    ))
+    self.code.ret(llundef(self.fntyp.ret))
     self.unit.warn('not all paths of the function return', self.sym.loc)
 
   def process_sym(self, sym: Symbol) -> None:

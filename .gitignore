@@ -42,7 +42,6 @@
 # Other
 __pycache__/
 .mypy_cache/
-llvmlite/
 
 # For stress tests
 stress.z9

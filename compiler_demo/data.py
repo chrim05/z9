@@ -324,9 +324,12 @@ class Typ:
   ) -> None:
     self.is_const: bool = is_const
   
-  # in bytes
-  def size(self) -> int:
+  def bit_size(self) -> int:
     raise NotImplementedError(type(self).__name__)
+  
+  def byte_size(self) -> int:
+    from math import ceil
+    return ceil(self.bit_size() / 8)
 
   def quals(self) -> list[str]:
     r = []
@@ -368,7 +371,7 @@ class LitIntTyp(Typ):
   def is_eq(self, other: 'LitIntTyp') -> bool:
     return True
 
-  def size(self) -> int:
+  def bit_size(self) -> int:
     return 0
 
   def __repr__(self) -> str:
@@ -381,18 +384,19 @@ class IntTyp(Typ):
     self.kind: str = kind
     self.is_signed: bool = is_signed
   
-  def size(self) -> int:
+  def bit_size(self) -> int:
     match self.kind:
       # TODO: change 'long' to
       #       32 bit and allow
       #       it to be 64 only on
       #       linux-64
       case 'long' | 'longlong':
-        return 8
+        return 64
       
-      case 'int':   return 4
-      case 'short': return 2
-      case 'char':  return 1
+      case 'int':   return 32
+      case 'short': return 16
+      case 'char':  return 8
+      case '_Bool': return 1
       
       case _:
         raise UnreachableError(self.kind)
@@ -404,11 +408,13 @@ class IntTyp(Typ):
     )
 
   def __repr__(self) -> str:
-    if self.kind == 'longlong':
-      return 'long long'
+    kind = self.kind
+
+    if kind == 'longlong':
+      kind = 'long long'
 
     quals = self.quals()
-    quals.insert(0, self.kind)
+    quals.insert(0, kind)
 
     return ' '.join(quals)
 
@@ -416,7 +422,7 @@ class VoidTyp(Typ):
   def __init__(self) -> None:
     super().__init__()
 
-  def size(self) -> int:
+  def bit_size(self) -> int:
     return 0
 
   def is_eq(self, other: 'VoidTyp') -> bool:
@@ -434,8 +440,8 @@ class PointerTyp(Typ):
 
     self.pointee: Typ = pointee
 
-  def size(self) -> int:
-    return 8
+  def bit_size(self) -> int:
+    return 64
 
   def is_eq(self, other: 'PointerTyp') -> bool:
     return self.pointee == other.pointee
@@ -470,7 +476,7 @@ class FnTyp(Typ):
     self.params: list[Typ] = params
     self.pnames: list[Token | None] = pnames
 
-  def size(self) -> int:
+  def bit_size(self) -> int:
     return 0
 
   def is_eq(self, other: 'FnTyp') -> bool:
@@ -494,8 +500,8 @@ class ArrayTyp(Typ):
     self.pointee: Typ = pointee
     self.length: Val = size
 
-  def size(self) -> int:
-    return cast(int, self.length.meta) * self.pointee.size()
+  def bit_size(self) -> int:
+    return cast(int, self.length.meta) * self.pointee.bit_size()
 
   def is_eq(self, other: 'ArrayTyp') -> bool:
     return (
@@ -510,7 +516,7 @@ class PoisonedTyp(Typ):
   def __init__(self) -> None:
     super().__init__()
 
-  def size(self) -> int:
+  def bit_size(self) -> int:
     return 0
 
   def __repr__(self) -> str:
@@ -525,13 +531,19 @@ def typ_to_lltyp(typ: Typ) -> ll.Type:
   
   if isinstance(typ, IntTyp):
     return ll.IntType(
-      8 * typ.size()
+      typ.bit_size()
     )
   
   if isinstance(typ, VoidTyp):
     return ll.VoidType()
   
   raise UnreachableError(type(typ).__name__)
+
+def llundef(typ: Typ) -> ll.Constant:
+  return ll.Constant(
+    typ_to_lltyp(typ),
+    ll.Undefined
+  )
 
 class Val:
   def __init__(self, typ: Typ, meta: object = None, llv: ll.Value = ll.Value()) -> None:
@@ -677,29 +689,31 @@ LIT_INT_LLTYP = ll.IntType(0)
 from enum import IntEnum, auto
 
 class Opcode(IntEnum):
-  RET_VOID  = auto()
-  RET       = auto()
-  LOAD_NAME = auto()
-  PUSH      = auto()
-  ADD       = auto()
-  SUB       = auto()
-  MUL       = auto()
-  REM       = auto()
-  DIV       = auto()
-  SHL       = auto()
-  SHR       = auto()
-  LT        = auto()
-  GT        = auto()
-  LET       = auto()
-  GET       = auto()
-  EQ        = auto()
-  NEQ       = auto()
-  AND       = auto()
-  XOR       = auto()
-  OR        = auto()
-  LOCAL     = auto()
-  LOAD_PTR  = auto()
-  STORE_PTR = auto()
+  RET_VOID      = auto()
+  RET           = auto()
+  LOAD_NAME     = auto()
+  PUSH          = auto()
+  ADD           = auto()
+  SUB           = auto()
+  MUL           = auto()
+  REM           = auto()
+  DIV           = auto()
+  SHL           = auto()
+  SHR           = auto()
+  LT            = auto()
+  GT            = auto()
+  LET           = auto()
+  GET           = auto()
+  EQ            = auto()
+  NEQ           = auto()
+  AND           = auto()
+  XOR           = auto()
+  OR            = auto()
+  LOCAL         = auto()
+  LOAD_PTR      = auto()
+  STORE_PTR     = auto()
+  JUMP_IF_FALSE = auto()
+  JUMP          = auto()
 
 class Instr:
   def __init__(self, op: Opcode, loc: Loc, ex: Any) -> None:
@@ -747,11 +761,17 @@ class MidCode:
       r += f'  {label}: {i}\n'
 
     return r
+  
+  @property
+  def cursor(self) -> int:
+    return len(self.instructions)
 
-  def emit(self, op: Opcode, loc: Loc, ex: Any = None) -> None:
-    self.instructions.append(Instr(
+  def emit(self, op: Opcode, loc: Loc, ex: Any = None) -> Instr:
+    self.instructions.append(i := Instr(
       op, loc, ex
     ))
+
+    return i
 
   def ret_void(self, loc: Loc) -> None:
     self.emit(Opcode.RET_VOID, loc)
@@ -763,12 +783,18 @@ class MidCode:
     self.emit(Opcode.LOCAL, loc, PointerTyp(typ))
 
   def load_ptr(self, loc: Loc) -> None:
-    return self.emit(Opcode.LOAD_PTR, loc)
+    self.emit(Opcode.LOAD_PTR, loc)
 
   def load_name(self, loc: Loc, name: str) -> None:
     # TODO: maybe change this to internally emit a
     #       double instruction (load_name_addr + load_ptr)
-    return self.emit(Opcode.LOAD_NAME, loc, name)
+    self.emit(Opcode.LOAD_NAME, loc, name)
 
   def load(self, loc: Loc, v: Val) -> None:
-    return self.emit(Opcode.PUSH, loc, v)
+    self.emit(Opcode.PUSH, loc, v)
+  
+  def jump_if_false(self, loc: Loc) -> Instr:
+    return self.emit(Opcode.JUMP_IF_FALSE, loc)
+  
+  def jump(self, loc: Loc) -> Instr:
+    return self.emit(Opcode.JUMP, loc)

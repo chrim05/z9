@@ -59,14 +59,6 @@ class MrGen:
   def tab(self) -> SymTable:
     return self.unit.tab
 
-  # CORRECTION: this stuff should be performed
-  #             on the untyped ir on the next
-  #             component, the one which also
-  #             performs type checks
-  '''
-  
-  '''
-
   def predeclare_top_level(self, node: Node) -> None:
     if node.is_empty_decl():
       raise NotImplementedError()
@@ -165,8 +157,6 @@ class FnMrGen:
   '''
 
   def __init__(self, gen: MrGen, node: SyntaxNode) -> None:
-    from unit import TranslationUnit
-
     self.gen: MrGen = gen
     # self.typ: FnTyp = typ
     self.node: SyntaxNode = node
@@ -391,8 +381,44 @@ class FnMrGen:
     # TODO: add other jump statements
     return False
 
+  def pg_rounded_expression(self) -> None:
+    self.expect_token('(')
+    self.pg_expression()
+    self.expect_token(')')
+
+  def pg_statement(self) -> None:
+    self.expect_matching(
+      self.statement(),
+      'expected statement'
+    )
+
+  def pg_if(self, loc: Loc) -> None:
+    self.pg_rounded_expression()
+    jumpi = self.code.jump_if_false(loc)
+
+    self.pg_statement()
+
+    if self.token('else'):
+      quiti = self.code.jump(loc)
+      jumpi.ex = self.code.cursor
+      
+      self.pg_statement()
+      quiti.ex = self.code.cursor
+    else:
+      jumpi.ex = self.code.cursor
+
+  def selection_statement(self) -> bool:
+    if self.token('if'):
+      self.pg_if(self.bck.loc)
+      return True
+    
+    return False
+
   def statement(self) -> bool:
     if self.jump_statement():
+      return True
+    
+    if self.selection_statement():
       return True
 
     # TODO: add the other statements

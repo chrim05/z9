@@ -4,10 +4,6 @@ from llvmlite.binding import targets as lltargets, initialize as llinitialize
 from subprocess import run as runprocess
 from sys import argv
 
-import llvmlite
-llvmlite.show_reports = True
-llvmlite.raise_reports = False
-
 class TranslationUnit:
   def __init__(self, filepath: str) -> None:
     from tempfile import NamedTemporaryFile
@@ -63,14 +59,14 @@ class TranslationUnit:
   def print_diagnostic(self) -> None:
     dprint = lambda m, l, color: \
       self.console.print(
-        f'[b][{color}]{l}[/{color}][/b]: [b]{self.fix_message(m)}[/b]'
+        f'[b][{color}]{l}[/{color}][/b]: {self.fix_message(m)}'
       )
 
     for message, loc in self.errors:
       dprint(message, loc, 'red')
 
     for message, loc in self.warnings:
-      dprint(message, loc, 'yellow')
+      dprint(message, loc, 'purple')
 
   def report(self, message: str, loc: Loc) -> None:
     self.errors.append((message, loc))
