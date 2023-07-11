@@ -555,8 +555,13 @@ class Val:
   def llv(self) -> ll.Value:
     if not self.is_meta():
       return self._llv
-      
-    return ll.Constant(typ_to_lltyp(self.typ), self.meta)
+    
+    meta = self.meta
+
+    if isinstance(self.typ, IntTyp) and self.typ.kind == '_Bool':
+      meta = meta != 0
+    
+    return ll.Constant(typ_to_lltyp(self.typ), meta)
   
   @llv.setter
   def llv(self, llv: ll.Value) -> None:

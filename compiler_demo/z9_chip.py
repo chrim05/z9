@@ -240,11 +240,10 @@ class MrChip:
   def maybe_coerce(self, expected: Typ, actual_val: Val) -> Typ:
     actual = actual_val.typ
     typs  = [type(expected), type(actual)]
-    get_t = lambda t: [expected, actual][typs.index(t)]
 
-    if LitIntTyp in typs:
-      if IntTyp in typs:
-        return get_t(IntTyp)
+    if isinstance(actual, LitIntTyp):
+      if isinstance(expected, IntTyp):
+        return expected
 
       # the default type for literal ints
       # is always `int`
@@ -257,7 +256,7 @@ class MrChip:
     if typs == [IntTyp, IntTyp] and sa != se:
       if expected.kind == '_Bool': # type:ignore
         actual_val.llv = self.code.icmp_signed(
-          '==',
+          '!=',
           actual_val.llv,
           ll.Constant(typ_to_lltyp(actual_val.typ), 0)
         )
