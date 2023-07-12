@@ -1,16 +1,12 @@
 // port of basic raylib example from
 // https://github.com/raysan5/raylib/blob/master/examples/core/core_basic_window.c
 
-// you should not `@import raylib;` because it
-// exposes useful macros, that can't work
-// with modules;
-// so we include it, but you can install the package
-// with `z9 install raylib`
-#include <packages/raylib/raylib.h>
+// install raylib package with `z9 install raylib`
+// and you don't need additional compilation flags
+// compile with `z9 build hello_raylib.z9`
+// the package source code manages it internally
 
-// this tag enqueues the package's static library
-// to the "to link with" list.
-@link_with pkg("raylib");
+#include <packages/raylib/raylib.h>
 
 void main() {
     const screen_width = 800;

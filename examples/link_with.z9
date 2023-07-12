@@ -1,5 +1,3 @@
-@link_with pkg("some_package");
-
 const some_meta_var = "lib.a";
 @link_with(some_meta_var);
 

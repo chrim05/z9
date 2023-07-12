@@ -9,12 +9,16 @@ class MrChip:
     self.unit: TranslationUnit = unit
 
     self.sym: Symbol
-    self.fntyp: FnTyp
     self.llfn: ll.Function
     self.allocas: ll.IRBuilder
     self.code: ll.IRBuilder
     self.stack: list[Val] = []
     self.memories: list[SymTable] = [self.unit.tab]
+    self.control_flow_is_terminated: bool = False
+
+  @property
+  def fntyp(self) -> FnTyp:
+    return cast(FnTyp, self.sym.typ)
 
   @property
   def mem(self) -> SymTable:
@@ -388,29 +392,43 @@ class MrChip:
       llv = llundef(op_typ)
 
     self.push(Val(op_typ, None, llv))
+  
+  def terminate_control_flow(self) -> None:
+    self.control_flow_is_terminated = True
+  
+  def reopen_control_flow(self) -> None:
+    self.control_flow_is_terminated = False
 
   def process_instr(self, block_labels: dict[int, ll.Block], label: int, i: Instr) -> None:
-    fntyp: FnTyp = cast(FnTyp, self.sym.typ)
-
     if label in block_labels:
       new_block = block_labels.pop(label)
       self.jump_to_new_block_if_needed(new_block)
 
       self.code = ll.IRBuilder(new_block)
+      self.reopen_control_flow()
+    
+    if self.control_flow_is_terminated:
+      return
 
     match i.op:
       case Opcode.RET_VOID:
-        is_ok, _ = self.typcheck(fntyp.ret, Val(VoidTyp()), i.loc)
+        is_ok, _ = self.typcheck(self.fntyp.ret, Val(VoidTyp()), i.loc)
 
-        if is_ok:
-          self.code.ret_void()
+        if not is_ok:
+          return
+        
+        self.code.ret_void()
+        self.terminate_control_flow()
 
       case Opcode.RET:
         v = self.pop()
-        is_ok, v.typ = self.typcheck(fntyp.ret, v, i.loc)
+        is_ok, v.typ = self.typcheck(self.fntyp.ret, v, i.loc)
 
-        if is_ok:
-          self.code.ret(v.llv)
+        if not is_ok:
+          return
+        
+        self.code.ret(v.llv)
+        self.terminate_control_flow()
 
       # TODO: implement also operators
       #       for user-defined types
@@ -422,17 +440,36 @@ class MrChip:
 
       case Opcode.LOAD_NAME:
         name = cast(str, i.ex)
-        m = self.mem.get_member(name)
+        m = self.mem.get_member(name, i.loc)
 
         # TODO: add the ability to get non local symbols
         #       such as functions
         if isinstance(m, LocalSymbol):
           llv = self.code.load(m.llv)
-          self.push(Val(m.typ, None, llv))
+          self.push(Val(m.typ, llv=llv))
+        else:
+          self.push(POISONED_VAL)
       
       case Opcode.JUMP_IF_FALSE:
+        v = self.pop()
+        is_ok, v.typ = self.typcheck(IntTyp('_Bool', True), v, i.loc)
+
+        if v.is_meta():
+          if v.meta:
+            self.terminate_control_flow()
+            block_labels[label + 1] = self.code.block # type:ignore
+          else:
+            self.terminate_control_flow()
+            block_labels[i.ex] = self.code.block # type:ignore
+
+          return
+
         continue_block, jump_block = self.create_fork_blocks(label + 1, i.ex)
-        self.emit_cbranch(continue_block, jump_block, i.loc)
+
+        if not is_ok:
+          return
+        
+        self.code.cbranch(v.llv, continue_block, jump_block)
         self.code = ll.IRBuilder(continue_block)
 
         block_labels[i.ex] = jump_block
@@ -440,6 +477,7 @@ class MrChip:
       case Opcode.JUMP:
         jump_block = self.llfn.append_basic_block(f'L{i.ex}')
         block_labels[i.ex] = jump_block
+        self.terminate_control_flow()
 
       case Opcode.PUSH:
         self.push(i.ex)
@@ -472,18 +510,10 @@ class MrChip:
 
     return block1, block2
 
-  def emit_cbranch(self, continue_block: ll.Block, jump_block: ll.Block, loc: Loc) -> None:
-    # TODO: coerce `v` to _Bool
-    #       and ban it with `strict_rules`
-    v = self.pop()
-    is_ok, v.typ = self.typcheck(IntTyp('_Bool', True), v, loc)
-
-    if not is_ok:
-      return
-    
-    self.code.cbranch(v.llv, continue_block, jump_block)
-
   def jump_to_new_block_if_needed(self, new_block: ll.Block) -> None:
+    if self.control_flow_is_terminated:
+      return
+
     # probably never possible
     if self.code.block is None:
       return
@@ -493,22 +523,19 @@ class MrChip:
     
     self.code.branch(new_block)
 
-  def config_fn(self, sym: FnSymbol) -> FnTyp:
-    sym.typ = fntyp = cast(FnTyp, self.get_declaration_typ(sym.fn.node))
+  def config_fn(self, sym: FnSymbol) -> None:
+    sym.typ = self.get_declaration_typ(sym.fn.node)
     self.sym = sym
 
-    self.llfn = ll.Function(self.unit.llmod, typ_to_lltyp(fntyp), sym.name)
+    self.llfn = ll.Function(self.unit.llmod, typ_to_lltyp(self.fntyp), sym.name)
     self.allocas = ll.IRBuilder(self.llfn.append_basic_block('allocas'))
     self.code = ll.IRBuilder(self.llfn.append_basic_block('entry'))
 
     self.allocas.branch(self.code.block)
     self.allocas.position_at_start(self.allocas.block)
 
-    return fntyp
-
   def process_fnsym(self, sym: FnSymbol) -> None:
-    self.fntyp = self.config_fn(sym)
-
+    self.config_fn(sym)
     self.push_mem()
 
     # declaring parameters as locals
@@ -533,14 +560,15 @@ class MrChip:
     for label, i in enumerate(sym.fn.code.instructions):
       self.process_instr(block_labels, label, i)
     
-    if len(block_labels) == 1:
-      _, block = block_labels.popitem()
-      self.llfn.blocks.remove(block)
-    
-    assert len(block_labels) == 0
-    
+    self.cleanup_empty_blocks()
+
     self.emit_implicit_return()
     self.pop_mem()
+  
+  def cleanup_empty_blocks(self) -> None:
+    for block in self.llfn.blocks:
+      if len(block.instructions) == 0:
+        self.llfn.blocks.remove(block)
   
   def emit_implicit_return(self) -> None:
     # probably never possible

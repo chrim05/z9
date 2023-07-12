@@ -90,11 +90,17 @@ char* nth(size_t index) {
 //     
 // }
 
-int main(int a) {
-    if (a)
-        return a * 1;
+int main(int a, int b, int c) {
+    if (1)
+        if (1)
+            return 4;
+        else
+            return 5;
     else
-        return a * 2;
+        if (c)
+            return 10;
+        else
+            return 11;
 }
 
 // int x;

@@ -671,8 +671,9 @@ class SymTable:
 
     self.members[name] = (value, is_weak)
 
-  def get_member(self, name: str) -> Symbol | None:
+  def get_member(self, name: str, loc: Loc) -> Symbol | None:
     if name not in self.members:
+      self.unit.report(f'name "{name}" is not declared', loc)
       return None
 
     return cast(Symbol, self.members[name])
