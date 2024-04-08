@@ -1,25 +1,26 @@
 from unit import TranslationUnit
 from sys  import argv
+from data import *
 
 if len(argv) == 1 or argv[1].startswith('-'):
-  f = 'samples/simple.z9'
+  f = 'samples/simple.c0'
 else:
   f = argv[1]
 
 t = TranslationUnit(f)
 
-t.lex()
+try:
+  t.lex()
 
-t.dparse()
-# t.dump_root()
+  t.dparse()
+  t.dump_root()
 
-t.mrgen()
-t.dump_tab()
+  t.gen()
+  t.dump_tab()
 
-print('\n-------\n')
+  # t.chip()
+  # t.dump_cmod()
 
-t.mrchip()
-t.dump_llmod()
-
-t.print_diagnostic()
-t.compile()
+  # t.compile()
+except CompilationException as e:
+  t.print_error(e.message, e.loc)

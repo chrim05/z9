@@ -23,14 +23,17 @@ TYPE_SPECS = (
   '_Complex', '_Imaginary'
 )
 
-class DParser:
+class DParse:
   '''
   Lazy parser for declarations, from:
   https://github.com/katef/kgt/blob/main/examples/c99-grammar.iso-ebnf
 
   i use multiple parsing hacks for recognizing identifiers
   as typedef-ed names, and this allows the compiler to avoid
-  forward declarations for members
+  forward declarations for members.
+
+  this class only parses global scope declarations/definitions,
+  body parsing is performed in the next step
   '''
 
   def __init__(self, unit) -> None:
@@ -74,21 +77,19 @@ class DParser:
     token: Token | None = self.token(kind)
 
     if token is None:
-      self.unit.report(
+      raise CompilationException(
         f'expected token "{kind}", matched "{self.cur.kind}"',
         self.cur.loc
       )
-      return self.cur
 
     return token
 
   def collect_compound_statement(self) -> CompoundNode:
     if self.cur.kind != '{':
-      self.unit.report(
+      raise CompilationException(
         'after declarator, function definition wants a compound statement (its body)',
         self.cur.loc
       )
-      return CompoundNode(self.cur.loc)
 
     opener: Token = self.expect_token('{')
     compound = CompoundNode(opener.loc)
@@ -96,8 +97,7 @@ class DParser:
 
     while True:
       if not self.has_token():
-        self.unit.report('body not closed', opener.loc)
-        break
+        raise CompilationException('body not closed', opener.loc)
 
       if self.cur.kind == '{':
         nest_level += 1
@@ -197,8 +197,7 @@ class DParser:
 
     while True:
       if not self.has_token():
-        self.unit.report('initializer not closed, did you forget a ";"?', loc)
-        break
+        raise CompilationException('initializer not closed, did you forget a ";"?', loc)
 
       if not is_nested() and self.cur.kind in terminator:
         break
@@ -215,7 +214,7 @@ class DParser:
       self.skip()
 
     if not allow_empty and len(compound.tokens) == 0:
-      self.unit.report(
+      raise CompilationException(
         'initializer cannot be empty',
         compound.loc
       )
@@ -268,7 +267,7 @@ class DParser:
 
     # when not new decls are being added
     if len(decls.nodes) == 1:
-      self.unit.report(f'did you mean {" ".join(map(repr, TERMINATOR))}?', self.cur.loc)
+      raise CompilationException(f'did you mean {" ".join(map(repr, TERMINATOR))}?', self.cur.loc)
 
     return decls
 
@@ -381,7 +380,7 @@ class DParser:
     while True:
       if not self.has_token():
         if expect_braces:
-          self.unit.report('body not closed', opener.loc)
+          raise CompilationException('body not closed', opener.loc)
 
         break
 
@@ -477,7 +476,7 @@ class DParser:
       body = self.enumerator_list()
 
       if tname is None and body is None:
-        self.unit.report(
+        raise CompilationException(
           'expected identifier, enum body or both',
           self.cur.loc
         )
@@ -495,7 +494,7 @@ class DParser:
       )
 
       if tname is None and body is None:
-        self.unit.report(
+        raise CompilationException(
           f'expected identifier, {spec_kw.kind} body or both',
           self.cur.loc
         )
@@ -792,8 +791,7 @@ class DParser:
     return FullImportDirective(*details)
 
   def raise_malformed_import(self, loc: Loc) -> NoReturn:
-    self.unit.report('import directive is malformed', loc)
-    raise ParsingError()
+    raise CompilationException('import directive is malformed', loc)
 
   def parse_name_of_partial_import(self) -> tuple[Token, Token]:
     alias = self.expect_token('id')
@@ -919,8 +917,7 @@ class DParser:
     if node is not None:
       return node
 
-    self.unit.report(
+    raise CompilationException(
       f'{error_message}, matched token "{self.cur.kind}"',
       self.cur.loc
     )
-    raise ParsingError()

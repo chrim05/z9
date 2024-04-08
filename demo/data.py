@@ -1,5 +1,4 @@
 from typing import Callable, Any, cast
-from llvmlite import ir as ll
 
 META_TYPES = [
   'this_t', 'info_t',
@@ -46,6 +45,7 @@ def indented_repr(
   indent_level -= INDENT_DEPTH
   return f'{edges[0]}{s}{indented_line()}{edges[1]}'
 
+# TODO: replace this with proper parsing techniques
 def recoverable(func):
   '''
   this is a decorator for parsing methods of DParser and FnMrGen;
@@ -80,6 +80,12 @@ class Loc:
 
   def __repr__(self) -> str:
     return f'{self.filepath}:{self.line}:{self.col}'
+
+class CompilationException(Exception):
+  def __init__(self, message: str, loc: Loc | None) -> None:
+    super().__init__()
+    self.message: str = message
+    self.loc: Loc | None = loc
 
 class Node:
   def __init__(self, loc: Loc) -> None:
@@ -311,9 +317,6 @@ class TestDirective(Node):
     return \
       f'TestDirective({desc},{body}{indented_line()})'
 
-class ParsingError(Exception):
-  pass
-
 class UnreachableError(Exception):
   pass
 
@@ -522,50 +525,11 @@ class PoisonedTyp(Typ):
   def __repr__(self) -> str:
     return '?'
 
-def typ_to_lltyp(typ: Typ) -> ll.Type:
-  if isinstance(typ, FnTyp):
-    return ll.FunctionType(
-      typ_to_lltyp(typ.ret),
-      [typ_to_lltyp(p) for p in typ.params]
-    )
-  
-  if isinstance(typ, IntTyp):
-    return ll.IntType(
-      typ.bit_size()
-    )
-  
-  if isinstance(typ, VoidTyp):
-    return ll.VoidType()
-  
-  raise UnreachableError(type(typ).__name__)
-
-def llundef(typ: Typ) -> ll.Constant:
-  return ll.Constant(
-    typ_to_lltyp(typ),
-    ll.Undefined
-  )
-
 class Val:
-  def __init__(self, typ: Typ, meta: object = None, llv: ll.Value = ll.Value()) -> None:
+  def __init__(self, typ: Typ, meta: object = None, loc: Loc | None = None) -> None:
     self.typ: Typ = typ
     self.meta: object = meta
-    self._llv: ll.Value = llv
-
-  @property
-  def llv(self) -> ll.Value:
-    if not self.is_meta():
-      return self._llv
-    
-    meta = self.meta
-
-    if isinstance(self.typ, IntTyp) and self.typ.kind == '_Bool':
-      meta = meta != 0
-    
-    return ll.Constant(typ_to_lltyp(self.typ), meta)
-  
-  @llv.setter
-  def llv(self, llv: ll.Value) -> None:
-    self._llv = llv
+    self.loc: Loc | None = loc
 
   def is_meta(self) -> bool:
     return self.meta is not None
@@ -580,10 +544,10 @@ class Val:
     )
 
   def __repr__(self) -> str:
-    if self.meta is None:
-      return f'({self.typ} @undef)'
-
-    return f'({self.typ} {repr(self.meta)})'
+    if self.is_meta():
+      return f'({self.typ} {repr(self.meta)})'
+    
+    return f'({self.typ} @undef)'
 
 POISONED_VAL = Val(PoisonedTyp())
 
@@ -591,15 +555,13 @@ class Symbol:
   def __init__(self, name: str, loc: Loc) -> None:
     self.name: str = name
     self.loc: Loc = loc
-    # filled by mrchip
-    self.typ: Typ
 
   def __repr__(self) -> str:
     raise NotImplementedError(type(self).__name__)
 
 class ExternFnSymbol(Symbol):
   def __init__(self, node: Node) -> None:
-    super().__init__(node.name) # type: ignore
+    super().__init__(node.name, node.loc) # type: ignore
 
     self.node: Node = node
 
@@ -610,28 +572,19 @@ class FnSymbol(Symbol):
   def __init__(self, name: str, loc: Loc, fn) -> None:
     super().__init__(name, loc)
 
-    from z9_gen import FnMrGen
-    self.fn: FnMrGen = fn
+    from gen import LParse
+    self.fn: LParse = fn
 
   def __repr__(self) -> str:
-    return f'FnSymbol({self.fn.code})'
-
-class LocalSymbol(Symbol):
-  def __init__(self, name: str, loc: Loc, typ: Typ, llv: ll.Value) -> None:
-    super().__init__(name, loc)
-    self.typ: Typ = typ
-    self.llv: ll.Value = llv
+    return f'FnSymbol({self.fn.cbody})'
 
 class SymTable:
-  def __init__(self, unit) -> None:
-    from unit import TranslationUnit
-
-    self.unit: TranslationUnit = unit
+  def __init__(self) -> None:
     self.members: dict[str, Symbol | tuple[Node, bool]] = {}
     self.heading_decls: dict[str, list[Node]] = {}
 
   def copy(self) -> 'SymTable':
-    s = SymTable(self.unit)
+    s = SymTable()
     s.members = self.members.copy()
     s.heading_decls = self.heading_decls.copy()
 
@@ -661,8 +614,7 @@ class SymTable:
         return
 
       if not self.is_weak(name):
-        self.unit.report(f'name "{name}" already declared', loc)
-        return
+        raise CompilationException(f'name "{name}" already declared', loc)
 
       self.save_weak_decl(
         name,
@@ -673,15 +625,15 @@ class SymTable:
 
   def get_member(self, name: str, loc: Loc) -> Symbol | None:
     if name not in self.members:
-      self.unit.report(f'name "{name}" is not declared', loc)
-      return None
+      raise CompilationException(f'name "{name}" is not declared', loc)
 
     return cast(Symbol, self.members[name])
 
-  def declare_local(self, name: str, typ: Typ, llv: ll.Value, loc: Loc) -> None:
+  def declare_local(self, name: str, typ: Typ, loc: Loc) -> None:
+    raise UnreachableError('function to remove')
+  
     if name in self.members and isinstance(self.members[name], LocalSymbol):
-      self.unit.report(f'local name "{name}" already declared', loc)
-      return
+      raise CompilationException(f'local name "{name}" already declared', loc)
 
     self.members[name] = LocalSymbol(name, loc, typ, llv)
 
@@ -690,117 +642,7 @@ class SymTable:
       f'{repr(name)} -> {m}' for name, m in self.members.items()
     )
 
-LIT_INT_LLTYP = ll.IntType(0)
-
-from enum import IntEnum, auto
-
-class Opcode(IntEnum):
-  RET_VOID      = auto()
-  RET           = auto()
-  LOAD_NAME     = auto()
-  PUSH          = auto()
-  ADD           = auto()
-  SUB           = auto()
-  MUL           = auto()
-  REM           = auto()
-  DIV           = auto()
-  SHL           = auto()
-  SHR           = auto()
-  LT            = auto()
-  GT            = auto()
-  LET           = auto()
-  GET           = auto()
-  EQ            = auto()
-  NEQ           = auto()
-  AND           = auto()
-  XOR           = auto()
-  OR            = auto()
-  LOCAL         = auto()
-  LOAD_PTR      = auto()
-  STORE_PTR     = auto()
-  JUMP_IF_FALSE = auto()
-  JUMP          = auto()
-
-class Instr:
-  def __init__(self, op: Opcode, loc: Loc, ex: Any) -> None:
-    self.op: Opcode = op
-    self.loc: Loc = loc
-    self.ex: Any = ex
-
-  def __repr__(self) -> str:
-    r = self.op.name
-
-    if self.ex is not None:
-      r += f' {repr(self.ex)}'
-
-    return r
-
-from bidict import bidict
-
-ARITHMETIC_OPCODES = bidict({
-  '+':  Opcode.ADD,
-  '-':  Opcode.SUB,
-  '*':  Opcode.MUL,
-  '%':  Opcode.REM,
-  '/':  Opcode.DIV,
-  '<<': Opcode.SHL,
-  '>>': Opcode.SHR,
-  '<':  Opcode.LT,
-  '>':  Opcode.GT,
-  '<=': Opcode.LET,
-  '>=': Opcode.GET,
-  '==': Opcode.EQ,
-  '!=': Opcode.NEQ,
-  '&':  Opcode.AND,
-  '^':  Opcode.XOR,
-  '|':  Opcode.OR,
-})
-
-class MidCode:
-  def __init__(self) -> None:
-    self.instructions: list[Instr] = []
-
-  def __repr__(self) -> str:
-    r = '\n'
-
-    for label, i in enumerate(self.instructions):
-      r += f'  {label}: {i}\n'
-
-    return r
-  
-  @property
-  def cursor(self) -> int:
-    return len(self.instructions)
-
-  def emit(self, op: Opcode, loc: Loc, ex: Any = None) -> Instr:
-    self.instructions.append(i := Instr(
-      op, loc, ex
-    ))
-
-    return i
-
-  def ret_void(self, loc: Loc) -> None:
-    self.emit(Opcode.RET_VOID, loc)
-
-  def ret(self, loc: Loc) -> None:
-    self.emit(Opcode.RET, loc)
-
-  def local(self, loc: Loc, typ: Typ) -> None:
-    self.emit(Opcode.LOCAL, loc, PointerTyp(typ))
-
-  def load_ptr(self, loc: Loc) -> None:
-    self.emit(Opcode.LOAD_PTR, loc)
-
-  def load_name(self, loc: Loc, name: str) -> None:
-    # TODO: maybe change this to internally emit a
-    #       double instruction (load_name_addr + load_ptr)
-    self.emit(Opcode.LOAD_NAME, loc, name)
-
-  def load(self, loc: Loc, v: Val) -> None:
-    self.emit(Opcode.PUSH, loc, v)
-  
-  def jump_if_false(self, loc: Loc) -> Instr:
-    return self.emit(Opcode.JUMP_IF_FALSE, loc)
-  
-  def jump(self, loc: Loc) -> Instr:
-    return self.emit(Opcode.JUMP, loc)
+class CModule:
+  def __init__(self, filepath: str) -> None:
+    self.filepath: str = filepath
+    self.c: str = ''

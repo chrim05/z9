@@ -44,4 +44,4 @@ __pycache__/
 .mypy_cache/
 
 # For stress tests
-stress.z9
+stress.c0

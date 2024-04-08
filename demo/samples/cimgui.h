@@ -41,7 +41,7 @@
 #define CIMGUI_API EXTERN API
 #define CONST const
 
-// (crim): z9 doesn't handle `__int64` correctly,
+// (crim): c0 doesn't handle `__int64` correctly,
 //         it's parsed as a typedef-ed name, but it's not;
 //
 #ifdef _MSC_VER

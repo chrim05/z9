@@ -57,7 +57,7 @@ char* nth(size_t index) {
     return &.buffer[index];
 }
 
-@test "description of the first z9 unittest" {
+@test "description of the first c0 unittest" {
     do_something();
     expect(10 == 2);
 }
@@ -91,16 +91,7 @@ char* nth(size_t index) {
 // }
 
 int main(int a, int b, int c) {
-    if (1)
-        if (1)
-            return 4;
-        else
-            return 5;
-    else
-        if (c)
-            return 10;
-        else
-            return 11;
+    return a + b;
 }
 
 // int x;

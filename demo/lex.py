@@ -141,7 +141,7 @@ class Lexer:
 
     single: str = self.cur
     if single not in PUNCTUATION:
-      self.unit.report('bad token', loc)
+      raise CompilationException('bad token', loc)
 
     self.skip()
     return Token(single, single, loc)
@@ -162,7 +162,7 @@ class Lexer:
         '\"': '\"',
       }[c]
     except IndexError:
-      self.unit.report('bad escaped char', loc)
+      raise CompilationException('bad escaped char', loc)
       return c
 
   def collect_stringed_token(self, loc: Loc) -> Token:
@@ -182,7 +182,7 @@ class Lexer:
       self.skip()
 
     if not self.has_char():
-      self.unit.report('string not closed', loc)
+      raise CompilationException('string not closed', loc)
     else:
       # skipping also the closing `"`
       self.skip()
@@ -207,7 +207,7 @@ class Lexer:
     word.kind = 'meta_id'
 
     if word.value not in META_TAGS:
-      self.unit.report('unknown meta tag', word.loc)
+      raise CompilationException('unknown meta tag', word.loc)
 
     return word
 

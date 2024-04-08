@@ -23,33 +23,25 @@ def get_declaration_name(node: Node | None) -> Token | None:
     case _:
       return None
 
-'''
-the idea of this module is to generate a bunch
-of Middle Representations (Mr) for each top level declaration;
-
-the idea is to generate untyped ir, but at the same time
-to track the new declarations (and the top level ones),
-so that it's easy to parse expressions/statements/local-declarations
-correctly, without ambiguities, because we know at this stage
-of the compilation all the declarations (top levels and local ones);
-
-then the ir is checked and optionally runned by another component
-'''
-
-class MrGen:
+class Gen:
   '''
-  middle representation generator
+  the idea of this module is to generate a middle represetation
+  parsing the bodies into stack based bytecode
+  for each global scope lazy node parsed by dparse
+
+  c code is generated simultaneously to comptime execution
   '''
 
   def __init__(self, unit) -> None:
     from unit import TranslationUnit
 
     self.unit: TranslationUnit = unit
-    self.functions: list['FnMrGen'] = []
+    self.lparsers: list['LParse'] = []
 
+  # current local parser
   @property
-  def fn(self) -> 'FnMrGen':
-    return self.functions[-1]
+  def lparser(self) -> 'LParse':
+    return self.lparsers[-1]
 
   @property
   def root(self) -> MultipleNode:
@@ -93,23 +85,15 @@ class MrGen:
         if is_weak:
           return ExternFnSymbol(node)
 
-        self.functions.append(FnMrGen(
+        self.lparsers.append(LParse(
           self,
           # cast(FnTyp, typ),
           node
         ))
 
-        try:
-          self.fn.process()
-        except ParsingError:
-          # we can still parse and generate
-          # ir for all other top level
-          # declarations, even though
-          # this one was internally
-          # syntactically-malformed
-          pass
+        self.lparser.process()
 
-        fn = self.functions.pop()
+        fn = self.lparsers.pop()
         decl_name_token = cast(Token, get_declaration_name(node))
         name = cast(str, decl_name_token.value)
         return FnSymbol(name, decl_name_token.loc, fn)
@@ -150,20 +134,33 @@ class MrGen:
           )
     '''
 
-class FnMrGen:
+class CBody:
+  def __init__(self) -> None:
+    self.c: str = ''
+    self.vstack: list[Val] = []
+    self.locals: dict[str, Typ] = []
+  
+  def load(self, v: Val) -> None:
+    self.vstack.append(v)
+  
+  def load_name(self, name: str) -> None:
+    pass
+
+# TODO: execute at comptime certain operations
+class LParse:
   '''
   content parser also from:
   https://github.com/katef/kgt/blob/main/examples/c99-grammar.iso-ebnf
   '''
 
-  def __init__(self, gen: MrGen, node: SyntaxNode) -> None:
-    self.gen: MrGen = gen
+  def __init__(self, gen: Gen, node: SyntaxNode) -> None:
+    self.gen: Gen = gen
     # self.typ: FnTyp = typ
     self.node: SyntaxNode = node
-    self.code: MidCode = MidCode()
     
     self.tokens: list[Token]
     self.index: int = 0
+    self.cbody: CBody = CBody()
 
   @property
   def unit(self): # -> TranslationUnit:
@@ -201,7 +198,7 @@ class FnMrGen:
     token = self.cur
 
     if not self.token(kind):
-      self.unit.report(
+      raise CompilationException(
         f'expected token "{kind}", matched "{self.cur.kind}"',
         self.cur.loc
       )
@@ -261,24 +258,23 @@ class FnMrGen:
   def pg_primary_expression(self) -> None:
     # TODO: implement `__func__` and generic-selection here
     if not self.token('num', 'id', 'str', '('):
-      self.unit.report(
+      raise CompilationException(
         'expected primary expression', self.cur.loc
       )
-      return
 
     p = self.bck
 
     match p.kind:
       case 'num':
         constant = cast(int, self.bck.value)
-        self.code.load(p.loc, Val(
+        self.cbody.load(Val(
           LitIntTyp(),
           constant,
-          ll.Constant(LIT_INT_LLTYP, constant)
+          p.loc
         ))
 
       case 'id':
-        self.code.load_name(p.loc, cast(str, p.value))
+        self.cbody.load_name(cast(str, p.value))
 
       case '(':
         self.pg_expression()
@@ -306,7 +302,7 @@ class FnMrGen:
       op = self.bck
 
       parse_fn()
-      self.code.emit(ARITHMETIC_OPCODES[op.kind], op.loc)
+      self.cbody(op.kind, op.loc)
 
   def pg_conditional_expression(self) -> None:
     # TODO: implement logical operators
@@ -366,11 +362,11 @@ class FnMrGen:
 
   def pg_return(self, l: Loc) -> None:
     if self.token(';'):
-      self.code.ret_void(l)
+      self.cbody.ret_void(l)
       return
     
     self.pg_expression()
-    self.code.ret(l)
+    self.cbody.ret(l)
     self.expect_token(';')
 
   def jump_statement(self) -> bool:
@@ -394,18 +390,18 @@ class FnMrGen:
 
   def pg_if(self, loc: Loc) -> None:
     self.pg_rounded_expression()
-    jumpi = self.code.jump_if_false(loc)
+    jumpi = self.cbody.jump_if_false(loc)
 
     self.pg_statement()
 
     if self.token('else'):
-      quiti = self.code.jump(loc)
-      jumpi.ex = self.code.cursor
+      quiti = self.cbody.jump(loc)
+      jumpi.ex = self.cbody.cursor
       
       self.pg_statement()
-      quiti.ex = self.code.cursor
+      quiti.ex = self.cbody.cursor
     else:
-      jumpi.ex = self.code.cursor
+      jumpi.ex = self.cbody.cursor
 
   def selection_statement(self) -> bool:
     if self.token('if'):
@@ -451,11 +447,10 @@ class FnMrGen:
     if matching:
       return
 
-    self.unit.report(
+    raise CompilationException(
       f'{error_message}, matched token "{self.cur.kind}"',
       self.cur.loc
     )
-    raise ParsingError()
 
   # "pg" stands for "parse and generate"
   # which means that function is gonna
